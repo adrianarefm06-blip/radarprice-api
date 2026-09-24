@@ -17,6 +17,10 @@ Tests: `pip install -r requirements-dev.txt && pytest`.
 | GET | `/api/v1/products/{sku}` | 404 `{detail, sku}` |
 | GET | `/api/v1/products/{sku}/history?days=30` | `days+1` puntos `{date: "YYYY-MM-DD", price}` |
 | POST | `/api/v1/sync` | exige `X-API-Key` = `RADARPRICE_SYNC_API_KEY` (sin clave: 503); 409 si hay otro en curso |
+| GET | `/api/v1/alerts` | alertas del dispositivo (`X-Device-Id`), con `currentPrice` y `triggeredAt` |
+| POST | `/api/v1/alerts` | `{sku, targetPrice, targetSize?}` → 201; 409 duplicada (misma zapatilla y talla) o >50 |
+| PATCH | `/api/v1/alerts/{id}` | `{isActive?, targetPrice?}`; 404 si no es de este dispositivo |
+| DELETE | `/api/v1/alerts/{id}` | 204 |
 
 ## Datos reales vs demo
 | | `RADARPRICE_DEMO_DATA=true` (dev) | `RADARPRICE_DEMO_DATA=false` (producción) |
@@ -27,6 +31,13 @@ Tests: `pip install -r requirements-dev.txt && pytest`.
 
 La app marca como "Estimado" cualquier oferta `simulated`.
 Sync automático: `RADARPRICE_SYNC_INTERVAL_MINUTES=360` (tarea en el proceso; con varios workers usar cron → `POST /api/v1/sync`).
+
+## Alertas
+Sin cuentas: la app genera un `X-Device-Id` aleatorio (128 bits) y lo guarda en el dispositivo.
+Cada sync evalúa las alertas activas con los precios visibles (solo `live` si `DEMO_DATA=false`):
+al cruzar el objetivo se rellena `triggeredAt` (una vez) y se limpia si el precio vuelve a subir.
+`alertsTriggered` en el informe del sync = avisos nuevos. Push (FCM/APNs) pendiente de credenciales:
+el punto de enganche está en `SyncService._persist`.
 
 ## Catálogo
 11 zapatillas (`app/seed/catalog.py`), tallas EU 36–46 según segmento (`gender`: `men` | `women` | `unisex`)

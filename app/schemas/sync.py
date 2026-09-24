@@ -16,4 +16,5 @@ class SyncReportOut(CamelModel):
     offers_upserted: int
     offers_marked_out_of_stock: int
     history_points_upserted: int
+    alerts_triggered: int = 0  # disparos nuevos en este sync (pendientes de notificar)
     errors: list[SyncErrorOut]

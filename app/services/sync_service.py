@@ -7,6 +7,7 @@
 """
 import asyncio
 import logging
+from collections import defaultdict
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
@@ -21,6 +22,7 @@ from app.core.errors import SyncAlreadyRunningError
 from app.db.models import SOURCE_LIVE, SOURCE_SIMULATED, PriceHistory, Product, StoreOffer
 from app.schemas.sync import SyncErrorOut, SyncReportOut
 from app.scrapers.base import BaseScraper, ProductRef, ScrapedOffer, ScraperError
+from app.services.alerts import evaluate_alerts
 from app.services.pricing import lowest_in_stock
 
 _USER_AGENT = "RadarPriceBot/1.0 (+https://radarprice.app/bot)"
@@ -153,6 +155,14 @@ class SyncService:
                     continue
                 history_upserted += await self._upsert_history(session, product.sku, today, lowest, history_source)
 
+            offers_by_sku: dict[str, list[StoreOffer]] = defaultdict(list)
+            for (sku, _, _), offer in existing.items():
+                offers_by_sku[sku].append(offer)
+            fired = await evaluate_alerts(session, offers_by_sku, now, live_only=not demo)
+            for alert in fired:
+                # Punto de enganche para push (FCM/APNs) cuando haya credenciales.
+                _logger.info("alerta %s disparada: %s ≤ %s", alert.id, alert.triggered_price, alert.target_price)
+
             cutoff = today - timedelta(days=self._settings.history_retention_days)
             await session.execute(delete(PriceHistory).where(PriceHistory.date < cutoff))
 
@@ -160,6 +170,7 @@ class SyncService:
             "offers_upserted": upserted,
             "offers_marked_out_of_stock": marked_out,
             "history_points_upserted": history_upserted,
+            "alerts_triggered": len(fired),
         }
 
     @staticmethod

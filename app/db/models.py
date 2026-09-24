@@ -75,3 +75,25 @@ class PriceHistory(Base):
     source: Mapped[str] = mapped_column(String(10), default=SOURCE_SIMULATED, server_default=SOURCE_SIMULATED)
 
     product: Mapped[Product] = relationship(back_populates="history", lazy="raise")
+
+
+class PriceAlert(Base):
+    """Alerta de precio de un dispositivo (sin cuentas: `device_id` es un identificador
+    aleatorio que genera la app). `triggered_*` se rellena al cruzar el objetivo y se
+    limpia cuando el precio vuelve a subir, para poder avisar de nuevo."""
+
+    __tablename__ = "price_alerts"
+    __table_args__ = (
+        CheckConstraint("target_price > 0", name="ck_alert_target_positive"),
+        Index("ix_alert_device", "device_id"),
+    )
+
+    id: Mapped[str] = mapped_column(String(40), primary_key=True)
+    device_id: Mapped[str] = mapped_column(String(64))
+    product_sku: Mapped[str] = mapped_column(ForeignKey("products.sku", ondelete="CASCADE"), index=True)
+    target_price: Mapped[Decimal] = mapped_column(Money)
+    target_size: Mapped[str | None] = mapped_column(String(8), default=None)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    triggered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
+    triggered_price: Mapped[Decimal | None] = mapped_column(Money, nullable=True, default=None)
