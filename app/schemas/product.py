@@ -14,6 +14,7 @@ class StoreOfferOut(CamelModel):
     store_name: str
     store_logo_url: str
     price: float = Field(gt=0)
+    original_price: float | None = None  # extra: precio tachado de la tienda
     in_stock: bool
     affiliate_url: str
     last_updated: datetime  # extra: Flutter lo ignora

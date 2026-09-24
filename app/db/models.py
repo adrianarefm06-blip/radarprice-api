@@ -47,6 +47,7 @@ class StoreOffer(Base):
     store_name: Mapped[str] = mapped_column(String(64))
     size: Mapped[str] = mapped_column(String(8))
     price: Mapped[Decimal] = mapped_column(Money)
+    original_price: Mapped[Decimal | None] = mapped_column(Money, nullable=True, default=None)
     in_stock: Mapped[bool] = mapped_column(Boolean)
     affiliate_url: Mapped[str] = mapped_column(String(1024))
     last_updated: Mapped[datetime] = mapped_column(DateTime(timezone=True))

@@ -37,12 +37,16 @@ class ScrapedOffer:
     price: Decimal
     in_stock: bool
     affiliate_url: str
+    # Precio tachado (PVP antes de rebaja). None = la tienda no lo informa.
+    original_price: Decimal | None = None
 
     def __post_init__(self) -> None:
         if not self.size.strip():
             raise ValueError("size vacío")
         if self.price <= 0:
             raise ValueError(f"precio inválido: {self.price}")
+        if self.original_price is not None and self.original_price <= 0:
+            raise ValueError(f"precio original inválido: {self.original_price}")
         if not self.affiliate_url.startswith(("https://", "http://")):
             raise ValueError(f"URL inválida: {self.affiliate_url}")
 

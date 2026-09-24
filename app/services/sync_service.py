@@ -125,6 +125,7 @@ class SyncService:
                         session.add(offer)
                         existing[key] = offer
                     offer.price = scraped.price
+                    offer.original_price = scraped.original_price
                     offer.in_stock = scraped.in_stock
                     offer.affiliate_url = scraped.affiliate_url
                     offer.last_updated = now

@@ -17,6 +17,7 @@ def _offer_out(offer: StoreOffer) -> StoreOfferOut:
         store_name=offer.store_name,
         store_logo_url=store_logo_url(offer.store_name),
         price=float(offer.price),
+        original_price=float(offer.original_price) if offer.original_price is not None else None,
         in_stock=offer.in_stock,
         affiliate_url=offer.affiliate_url,
         last_updated=offer.last_updated,

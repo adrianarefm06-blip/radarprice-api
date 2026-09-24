@@ -36,6 +36,8 @@ from urllib.parse import quote, urljoin, urlsplit
 import httpx
 
 from app.scrapers.base import HttpScraper, ProductRef, ScrapedOffer, ScraperBlockedError, ScraperError
+from app.scrapers.common import normalize_size as _normalize_size
+from app.scrapers.common import to_price as _to_price
 
 _BASE_URL: Final = "https://www.nike.com"
 
@@ -307,26 +309,6 @@ def find_pdp_url(html: str, sku: str, marketplace_path: str = "es") -> str | Non
     )
     match = pattern.search(text)
     return urljoin(_BASE_URL, match.group(0)) if match else None
-
-
-def _normalize_size(raw: str) -> str:
-    value = raw.replace(",", ".")
-    return value[:-2] if value.endswith(".0") else value
-
-
-def _to_price(value: Any) -> Decimal | None:
-    if isinstance(value, bool) or value is None:
-        return None
-    try:
-        if isinstance(value, (int, float)):
-            price = Decimal(str(value))
-        elif isinstance(value, str):
-            price = Decimal(value.replace("€", "").replace(",", ".").strip())
-        else:
-            return None
-    except InvalidOperation:
-        return None
-    return price.quantize(Decimal("0.01")) if price > 0 else None
 
 
 def _is_nike_url(url: str) -> bool:

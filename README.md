@@ -28,5 +28,13 @@ JSON camelCase = `Product.fromJson` / `PricePoint.fromJson`. Campos extra: `colo
 Emulador Android: `http://10.0.2.2:8000` (y `android:usesCleartextTraffic="true"` en debug).
 
 ## Scrapers
-`build_default_scrapers()` (app/scrapers/registry.py) devuelve tiendas simuladas deterministas por día.
-Tienda real: subclase de `HttpScraper` con `build_url()` + `parse()` y registrarla ahí.
+`build_default_scrapers()` (app/scrapers/registry.py): tiendas de `RADARPRICE_REAL_SCRAPERS` con scraper real
+(`SCRAPER_REGISTRY`), el resto simuladas deterministas por día.
+
+| Tienda | Módulo | Por defecto | Fuente |
+|---|---|---|---|
+| Nike | `app/scrapers/nike.py` | activo | `__NEXT_DATA__` de la PDP |
+| Zalando | `app/scrapers/zalando.py` | opt-in: `RADARPRICE_REAL_SCRAPERS='["Nike","Zalando"]'` | JSON-LD `Product` / JSON embebido |
+
+Fallo de una tienda (bloqueo, red, HTML desconocido) → error en el informe del sync; sus ofertas previas se conservan.
+Prueba en vivo: `python -m app.scrapers.zalando HQ8708`. Tienda nueva: subclase de `HttpScraper` y alta en `SCRAPER_REGISTRY`.
