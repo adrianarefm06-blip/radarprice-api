@@ -17,6 +17,7 @@ class StoreOfferOut(CamelModel):
     original_price: float | None = None  # extra: precio tachado de la tienda
     in_stock: bool
     affiliate_url: str
+    source: Literal["live", "simulated"]  # simulated = dato de demostración
     last_updated: datetime  # extra: Flutter lo ignora
 
 

@@ -56,6 +56,11 @@ class BaseScraper(ABC):
     @abstractmethod
     def store_name(self) -> str: ...
 
+    @property
+    def is_live(self) -> bool:
+        """True = precios leídos de la tienda real. Las simulaciones lo sobrescriben a False."""
+        return True
+
     @abstractmethod
     async def fetch_offers(self, client: httpx.AsyncClient, product: ProductRef) -> Sequence[ScrapedOffer]: ...
 

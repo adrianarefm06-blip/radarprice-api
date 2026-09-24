@@ -34,6 +34,10 @@ class SimulatedStoreScraper(BaseScraper):
         self._clock = clock
 
     @property
+    def is_live(self) -> bool:
+        return False
+
+    @property
     def store_name(self) -> str:
         return self._store.name
 

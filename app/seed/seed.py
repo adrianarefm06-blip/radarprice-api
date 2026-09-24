@@ -24,6 +24,7 @@ async def seed_database(
     reset: bool = False,
     today: date | None = None,
     history_days: int = 365,
+    synthetic_history: bool = True,
 ) -> bool:
     """Siembra el catálogo. Con datos previos (sin reset) solo añade los SKUs
     que falten y completa segmento/colorway de los existentes, sin tocar ofertas.
@@ -41,7 +42,8 @@ async def seed_database(
             current = existing.get(seed.sku)
             if current is None:
                 session.add(_product(seed, now))
-                session.add_all(_history(seed, today, history_days))
+                if synthetic_history:
+                    session.add_all(_history(seed, today, history_days))
                 added = True
             else:
                 current.gender, current.colorway = seed.gender, seed.colorway
@@ -100,7 +102,7 @@ async def _main(reset: bool) -> None:
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
             await conn.run_sync(add_missing_columns)
-        seeded = await seed_database(sessionmaker, reset=reset)
+        seeded = await seed_database(sessionmaker, reset=reset, synthetic_history=settings.demo_data)
         print("Seed aplicado" if seeded else "BD con datos: usa --reset para re-sembrar")
     finally:
         await engine.dispose()

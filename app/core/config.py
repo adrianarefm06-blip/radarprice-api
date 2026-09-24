@@ -1,5 +1,6 @@
 from functools import lru_cache
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -22,6 +23,12 @@ class Settings(BaseSettings):
     real_scrapers: tuple[str, ...] = ("Nike",)
     http_timeout_seconds: float = 10.0
     history_retention_days: int = 365
+    # Datos de demostración: ofertas de tiendas simuladas + histórico sintético sembrado.
+    # Producción: RADARPRICE_DEMO_DATA=false → la API solo sirve ofertas e histórico reales.
+    demo_data: bool = True
+    # Sync periódico dentro del proceso (None = solo manual vía POST /sync).
+    # Con varios workers de uvicorn cada uno lo ejecutaría: usar 1 worker o un cron externo.
+    sync_interval_minutes: int | None = Field(default=None, ge=5)
 
 
 @lru_cache

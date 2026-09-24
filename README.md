@@ -18,6 +18,16 @@ Tests: `pip install -r requirements-dev.txt && pytest`.
 | GET | `/api/v1/products/{sku}/history?days=30` | `days+1` puntos `{date: "YYYY-MM-DD", price}` |
 | POST | `/api/v1/sync` | exige `X-API-Key` = `RADARPRICE_SYNC_API_KEY` (sin clave: 503); 409 si hay otro en curso |
 
+## Datos reales vs demo
+| | `RADARPRICE_DEMO_DATA=true` (dev) | `RADARPRICE_DEMO_DATA=false` (producción) |
+|---|---|---|
+| Ofertas servidas | reales + simuladas (`source: "simulated"`) | solo `source: "live"` |
+| Histórico | sintético sembrado + syncs | solo puntos de syncs reales |
+| Tiendas en el sync | reales + simuladas | solo `RADARPRICE_REAL_SCRAPERS` |
+
+La app marca como "Estimado" cualquier oferta `simulated`.
+Sync automático: `RADARPRICE_SYNC_INTERVAL_MINUTES=360` (tarea en el proceso; con varios workers usar cron → `POST /api/v1/sync`).
+
 ## Catálogo
 11 zapatillas (`app/seed/catalog.py`), tallas EU 36–46 según segmento (`gender`: `men` | `women` | `unisex`)
 y ofertas deterministas en Nike/adidas, Zalando, Foot Locker y StockX.

@@ -19,11 +19,12 @@ SCRAPER_REGISTRY: Final[Mapping[str, Callable[[], BaseScraper]]] = MappingProxyT
 
 
 def build_default_scrapers(settings: Settings) -> tuple[BaseScraper, ...]:
-    """Real si la tienda está en `settings.real_scrapers`; simulada en caso contrario."""
+    """Real si la tienda está en `settings.real_scrapers`; si no, simulada (solo con demo_data)."""
     unknown = set(settings.real_scrapers) - set(SCRAPER_REGISTRY)
     if unknown:
         raise ValueError(f"Scrapers reales no implementados: {sorted(unknown)}")
     return tuple(
         SCRAPER_REGISTRY[name]() if name in settings.real_scrapers else SimulatedStoreScraper(name)
         for name in STORES
+        if name in settings.real_scrapers or settings.demo_data
     )

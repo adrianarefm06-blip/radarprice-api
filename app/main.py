@@ -1,5 +1,7 @@
+import asyncio
 from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
+from datetime import timedelta
 
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -13,6 +15,7 @@ from app.db.schema import add_missing_columns
 from app.db.session import create_engine_and_sessionmaker
 from app.scrapers import build_default_scrapers
 from app.seed.seed import seed_database
+from app.services.scheduler import run_periodic_sync
 from app.services.sync_service import SyncService
 
 
@@ -26,13 +29,23 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             await conn.run_sync(Base.metadata.create_all)
             await conn.run_sync(add_missing_columns)
         if settings.seed_on_startup:
-            await seed_database(sessionmaker)
+            await seed_database(sessionmaker, synthetic_history=settings.demo_data)
         app.state.settings = settings
         app.state.sessionmaker = sessionmaker
         app.state.sync_service = SyncService(sessionmaker, build_default_scrapers(settings), settings)
+        scheduler: asyncio.Task[None] | None = None
+        if settings.sync_interval_minutes:
+            scheduler = asyncio.create_task(
+                run_periodic_sync(app.state.sync_service, timedelta(minutes=settings.sync_interval_minutes)),
+                name="radarprice-periodic-sync",
+            )
         try:
             yield
         finally:
+            if scheduler is not None:
+                scheduler.cancel()
+                with suppress(asyncio.CancelledError):
+                    await scheduler
             await engine.dispose()
 
     app = FastAPI(title="RadarPrice API", version="1.0.0", lifespan=lifespan)

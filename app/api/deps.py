@@ -19,8 +19,11 @@ async def get_session(request: Request) -> AsyncIterator[AsyncSession]:
         yield session
 
 
-def get_product_repository(session: Annotated[AsyncSession, Depends(get_session)]) -> ProductRepository:
-    return ProductRepository(session)
+def get_product_repository(
+    session: Annotated[AsyncSession, Depends(get_session)], request: Request,
+) -> ProductRepository:
+    settings: Settings = request.app.state.settings
+    return ProductRepository(session, live_only=not settings.demo_data)
 
 
 def get_sync_service(request: Request) -> SyncService:

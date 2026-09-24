@@ -1,7 +1,7 @@
 from collections import defaultdict
 
 from app.core.stores import store_logo_url
-from app.db.models import Product, StoreOffer
+from app.db.models import SOURCE_LIVE, Product, StoreOffer
 from app.schemas.product import ProductOut, StoreOfferOut
 from app.services.pricing import lowest_in_stock, savings_percent, size_sort_key
 
@@ -20,6 +20,7 @@ def _offer_out(offer: StoreOffer) -> StoreOfferOut:
         original_price=float(offer.original_price) if offer.original_price is not None else None,
         in_stock=offer.in_stock,
         affiliate_url=offer.affiliate_url,
+        source="live" if offer.source == SOURCE_LIVE else "simulated",
         last_updated=offer.last_updated,
     )
 
