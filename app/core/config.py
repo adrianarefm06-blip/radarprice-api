@@ -1,5 +1,6 @@
 from functools import lru_cache
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -17,10 +18,17 @@ class Settings(BaseSettings):
         "38", "38.5", "39", "40", "40.5", "41", "42", "42.5", "43", "44", "44.5", "45", "46",
     )
     scraper_concurrency: int = 4
-    # Tiendas con scraper real (resto simuladas). Desactivar: RADARPRICE_REAL_SCRAPERS='[]'
+    # Tiendas con scraper real (resto simuladas). Disponibles: SCRAPER_REGISTRY (Nike, Zalando).
+    # Zalando es opt-in: RADARPRICE_REAL_SCRAPERS='["Nike","Zalando"]'. Desactivar todo: '[]'
     real_scrapers: tuple[str, ...] = ("Nike",)
     http_timeout_seconds: float = 10.0
     history_retention_days: int = 365
+    # Datos de demostración: ofertas de tiendas simuladas + histórico sintético sembrado.
+    # Producción: RADARPRICE_DEMO_DATA=false → la API solo sirve ofertas e histórico reales.
+    demo_data: bool = True
+    # Sync periódico dentro del proceso (None = solo manual vía POST /sync).
+    # Con varios workers de uvicorn cada uno lo ejecutaría: usar 1 worker o un cron externo.
+    sync_interval_minutes: int | None = Field(default=None, ge=5)
 
 
 @lru_cache

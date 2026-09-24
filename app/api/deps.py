@@ -19,8 +19,11 @@ async def get_session(request: Request) -> AsyncIterator[AsyncSession]:
         yield session
 
 
-def get_product_repository(session: Annotated[AsyncSession, Depends(get_session)]) -> ProductRepository:
-    return ProductRepository(session)
+def get_product_repository(
+    session: Annotated[AsyncSession, Depends(get_session)], request: Request,
+) -> ProductRepository:
+    settings: Settings = request.app.state.settings
+    return ProductRepository(session, live_only=not settings.demo_data)
 
 
 def get_sync_service(request: Request) -> SyncService:
@@ -37,5 +40,11 @@ def require_sync_key(
     x_api_key: Annotated[str | None, Header()] = None,
 ) -> None:
     expected = settings.sync_api_key
-    if expected and not secrets.compare_digest(x_api_key or "", expected):
+    if not expected:
+        # Cerrado por defecto: un sync dispara peticiones a tiendas de terceros.
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            "Sync deshabilitado: define RADARPRICE_SYNC_API_KEY para activarlo",
+        )
+    if not secrets.compare_digest(x_api_key or "", expected):
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "X-API-Key inválida o ausente")

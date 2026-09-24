@@ -66,6 +66,23 @@ def test_search(client: TestClient) -> None:
     assert [p["sku"] for p in client.get("/api/v1/products", params={"q": "panda"}).json()] == ["HF5441-100"]
 
 
+def test_sync_disabled_without_key() -> None:
+    settings = Settings(database_url="sqlite+aiosqlite:///:memory:", sync_api_key=None, real_scrapers=())
+    with TestClient(create_app(settings)) as c:
+        assert c.post("/api/v1/sync").status_code == 503
+        assert c.post("/api/v1/sync", headers={"X-API-Key": ""}).status_code == 503
+
+
+def test_catalog_pagination(client: TestClient) -> None:
+    full = [p["sku"] for p in client.get("/api/v1/products").json()]
+    assert len(full) == 11 and full == sorted(full)
+    first = client.get("/api/v1/products", params={"limit": 5}).json()
+    rest = client.get("/api/v1/products", params={"limit": 5, "offset": 5}).json()
+    last = client.get("/api/v1/products", params={"limit": 5, "offset": 10}).json()
+    assert [p["sku"] for p in first + rest + last] == full and len(last) == 1
+    assert client.get("/api/v1/products", params={"limit": 501}).status_code == 422
+
+
 def test_sync_requires_key_and_updates(client: TestClient) -> None:
     assert client.post("/api/v1/sync").status_code == 401
     report = client.post("/api/v1/sync", headers={"X-API-Key": "secret"}).json()

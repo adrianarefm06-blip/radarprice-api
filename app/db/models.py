@@ -12,6 +12,10 @@ from app.db.base import Base
 
 Money = Numeric(10, 2, asdecimal=True)
 
+# Origen del dato. "simulated" = demo (seed / tienda simulada); nunca se sirve con demo_data=false.
+SOURCE_LIVE = "live"
+SOURCE_SIMULATED = "simulated"
+
 
 class Product(Base):
     __tablename__ = "products"
@@ -47,8 +51,10 @@ class StoreOffer(Base):
     store_name: Mapped[str] = mapped_column(String(64))
     size: Mapped[str] = mapped_column(String(8))
     price: Mapped[Decimal] = mapped_column(Money)
+    original_price: Mapped[Decimal | None] = mapped_column(Money, nullable=True, default=None)
     in_stock: Mapped[bool] = mapped_column(Boolean)
     affiliate_url: Mapped[str] = mapped_column(String(1024))
+    source: Mapped[str] = mapped_column(String(10), default=SOURCE_SIMULATED, server_default=SOURCE_SIMULATED)
     last_updated: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
     product: Mapped[Product] = relationship(back_populates="offers", lazy="raise")
@@ -66,5 +72,6 @@ class PriceHistory(Base):
     product_sku: Mapped[str] = mapped_column(ForeignKey("products.sku", ondelete="CASCADE"))
     date: Mapped[date] = mapped_column(Date)
     price: Mapped[Decimal] = mapped_column(Money)
+    source: Mapped[str] = mapped_column(String(10), default=SOURCE_SIMULATED, server_default=SOURCE_SIMULATED)
 
     product: Mapped[Product] = relationship(back_populates="history", lazy="raise")
