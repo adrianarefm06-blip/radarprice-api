@@ -13,10 +13,10 @@ Tests: `pip install -r requirements-dev.txt && pytest`.
 | Método | Ruta | Notas |
 |---|---|---|
 | GET | `/api/v1/products/deals?size=42.5&limit=20` | ranking por `savingsPercent` |
-| GET | `/api/v1/products?q=panda&size=43` | búsqueda (contrato `searchProducts`) |
+| GET | `/api/v1/products?q=panda&size=43&limit=200&offset=0` | catálogo/búsqueda paginada por SKU (la app carga el catálogo aquí) |
 | GET | `/api/v1/products/{sku}` | 404 `{detail, sku}` |
 | GET | `/api/v1/products/{sku}/history?days=30` | `days+1` puntos `{date: "YYYY-MM-DD", price}` |
-| POST | `/api/v1/sync` | `X-API-Key` si `RADARPRICE_SYNC_API_KEY`; 409 si hay otro en curso |
+| POST | `/api/v1/sync` | exige `X-API-Key` = `RADARPRICE_SYNC_API_KEY` (sin clave: 503); 409 si hay otro en curso |
 
 ## Catálogo
 11 zapatillas (`app/seed/catalog.py`), tallas EU 36–46 según segmento (`gender`: `men` | `women` | `unisex`)

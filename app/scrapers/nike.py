@@ -16,9 +16,9 @@
 - Solo marcas Nike/Jordan; el resto devuelve [] sin hacer peticiones.
 
 Prueba en vivo:
-  python -m app.scrapers.nike DD1391-100
+  python -m app.scrapers.nike HF5441-100
   python -m app.scrapers.nike DH6927-111 --brand Jordan
-  python -m app.scrapers.nike DD1391-100 --url https://www.nike.com/es/t/…/DD1391-100
+  python -m app.scrapers.nike HF5441-100 --url https://www.nike.com/es/t/…/HF5441-100
 """
 from __future__ import annotations
 
@@ -355,7 +355,7 @@ async def _probe(sku: str, brand: str, url: str | None) -> int:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Prueba en vivo del scraper Nike")
-    parser.add_argument("sku", nargs="?", default="DD1391-100")
+    parser.add_argument("sku", nargs="?", default="HF5441-100")
     parser.add_argument("--brand", default="Nike")
     parser.add_argument("--url", help="URL exacta de la PDP (por defecto: KNOWN_PDP_URLS)")
     args = parser.parse_args()
