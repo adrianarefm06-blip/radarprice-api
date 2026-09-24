@@ -1,9 +1,18 @@
 """Esquemas de salida: espejo exacto de los modelos Flutter (camelCase)."""
-from datetime import date, datetime
-from typing import Literal
+from datetime import UTC, date, datetime
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
+
+
+def _assume_utc(value: datetime) -> datetime:
+    return value if value.tzinfo is not None else value.replace(tzinfo=UTC)
+
+
+# SQLite devuelve fechas sin zona aunque se guarden en UTC: sin esto, el cliente
+# las interpretaría como hora local.
+UtcDatetime = Annotated[datetime, AfterValidator(_assume_utc)]
 
 
 class CamelModel(BaseModel):
@@ -18,7 +27,7 @@ class StoreOfferOut(CamelModel):
     in_stock: bool
     affiliate_url: str
     source: Literal["live", "simulated"]  # simulated = dato de demostración
-    last_updated: datetime  # extra: Flutter lo ignora
+    last_updated: UtcDatetime  # extra: Flutter lo ignora
 
 
 class ProductOut(CamelModel):
