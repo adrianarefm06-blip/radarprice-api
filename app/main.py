@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager, suppress
 from datetime import timedelta
@@ -19,11 +20,30 @@ from app.services.scheduler import run_periodic_sync
 from app.services.sync_service import SyncService
 
 
+_logger = logging.getLogger(__name__)
+
+
+def _configure_logging(level: str) -> None:
+    """Logs de `app.*` a stderr (docker logs). No toca los de uvicorn ni duplica handlers."""
+    logger = logging.getLogger("app")
+    logger.setLevel(level)
+    if not logger.handlers:
+        handler = logging.StreamHandler()
+        handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
+        logger.addHandler(handler)
+
+
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or get_settings()
+    _configure_logging(settings.log_level)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+        _logger.info(
+            "arranque: demo_data=%s, scrapers reales=%s, sync cada %s min, sync manual %s",
+            settings.demo_data, list(settings.real_scrapers), settings.sync_interval_minutes or "—",
+            "habilitado" if settings.sync_api_key else "deshabilitado (sin RADARPRICE_SYNC_API_KEY)",
+        )
         engine, sessionmaker = create_engine_and_sessionmaker(settings)
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)

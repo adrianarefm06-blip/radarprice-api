@@ -29,3 +29,16 @@ jobs:
         run: ruff check app tests
       - name: Tests
         run: pytest tests/ -q
+
+  docker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Construir imagen
+        run: docker build -t radarprice-api:ci .
+      - name: Arrancar y comprobar /health
+        run: |
+          docker run -d --name api -p 8000:8000 radarprice-api:ci
+          for i in $(seq 1 30); do curl -sf localhost:8000/health && exit 0; sleep 1; done
+          docker logs api; exit 1
