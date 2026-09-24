@@ -9,6 +9,20 @@ uvicorn app.main:app --reload                        # http://127.0.0.1:8000/doc
 La BD `radarprice.db` se crea y siembra al arrancar. Re-sembrar: `python -m app.seed.seed --reset`.
 Tests: `pip install -r requirements-dev.txt && pytest`.
 
+## Despliegue (Docker)
+Imagen de producción: usuario sin privilegios, 1 worker, healthcheck en `/health`,
+SQLite en el volumen `/data` y `RADARPRICE_DEMO_DATA=false` por defecto.
+```bash
+docker build -t radarprice-api .
+docker run -d -p 8000:8000 -v radarprice-data:/data \
+  -e RADARPRICE_SYNC_API_KEY="$(python -c 'import secrets; print(secrets.token_urlsafe(32))')" \
+  -e RADARPRICE_SYNC_INTERVAL_MINUTES=360 \
+  radarprice-api
+```
+Vale para cualquier servicio con Docker (Render, Fly.io, Railway, VPS): exponer el puerto `$PORT`
+(8000 por defecto) detrás de HTTPS y montar un volumen persistente en `/data`.
+Al arrancar se registra la configuración efectiva (`demo_data`, scrapers reales, sync) en los logs.
+
 ## Endpoints
 | Método | Ruta | Notas |
 |---|---|---|

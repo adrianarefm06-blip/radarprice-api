@@ -29,6 +29,8 @@ class Settings(BaseSettings):
     # Sync periódico dentro del proceso (None = solo manual vía POST /sync).
     # Con varios workers de uvicorn cada uno lo ejecutaría: usar 1 worker o un cron externo.
     sync_interval_minutes: int | None = Field(default=None, ge=5)
+    # Nivel de los logs de la app (sync, alertas, scrapers). uvicorn configura los suyos aparte.
+    log_level: str = Field(default="INFO", pattern=r"^(DEBUG|INFO|WARNING|ERROR)$")
 
 
 @lru_cache
