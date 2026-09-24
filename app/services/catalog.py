@@ -5,6 +5,8 @@ from app.db.models import Product, StoreOffer
 from app.schemas.product import ProductOut, StoreOfferOut
 from app.services.pricing import lowest_in_stock, savings_percent, size_sort_key
 
+_GENDERS = frozenset({"men", "women", "unisex"})
+
 
 def product_id(sku: str) -> str:
     return f"prd_{sku.lower()}"
@@ -40,6 +42,8 @@ def to_product_out(product: Product, *, size: str | None = None) -> ProductOut:
         brand=product.brand,
         model=product.name,
         image_url=product.image_url,
+        colorway=product.colorway,
+        gender=product.gender if product.gender in _GENDERS else "unisex",
         lowest_price=float(lowest),
         retail_price=float(product.retail_price),
         size_offers=size_offers,

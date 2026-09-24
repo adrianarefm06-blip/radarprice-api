@@ -9,6 +9,7 @@ from app.api.v1.router import api_router
 from app.core.config import Settings, get_settings
 from app.core.errors import ProductNotFoundError, SyncAlreadyRunningError
 from app.db.base import Base
+from app.db.schema import add_missing_columns
 from app.db.session import create_engine_and_sessionmaker
 from app.scrapers import build_default_scrapers
 from app.seed.seed import seed_database
@@ -23,6 +24,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         engine, sessionmaker = create_engine_and_sessionmaker(settings)
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
+            await conn.run_sync(add_missing_columns)
         if settings.seed_on_startup:
             await seed_database(sessionmaker)
         app.state.settings = settings

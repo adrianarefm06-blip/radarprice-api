@@ -19,6 +19,7 @@ from app.db.session import create_engine_and_sessionmaker
 from app.scrapers import NikeScraper, ProductRef, ScraperBlockedError, ScraperError
 from app.scrapers.nike import eu_size, find_pdp_url, parse_product_page
 from app.scrapers.simulated import SimulatedStoreScraper
+from app.seed.catalog import SEED_PRODUCTS
 from app.seed.seed import seed_database
 from app.services.sync_service import SyncService
 
@@ -163,13 +164,13 @@ def _sync(handler: Callable[[httpx.Request], httpx.Response]):  # noqa: ANN202
 def test_sync_persists_real_offers_and_history() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         sku = request.url.params.get("q") or request.url.path.rsplit("/", 1)[-1]
-        return httpx.Response(200, text=pdp_html(sku=sku, price=89.99 if sku == "DD1391-100" else 205.0))
+        return httpx.Response(200, text=pdp_html(sku=sku, price=89.99 if sku == "HF5441-100" else 205.0))
 
     _, after, report, history = _sync(handler)
     assert report.errors == []
-    assert after[("DD1391-100", "42.5")] == (Decimal("89.99"), True, PDP_URL)
-    assert after[("DD1391-100", "41")][1] is False  # talla ya no listada → agotada
-    today_panda = [h for h in history if h.product_sku == "DD1391-100" and h.date == report.started_at.date()]
+    assert after[("HF5441-100", "42.5")] == (Decimal("89.99"), True, PDP_URL)
+    assert after[("HF5441-100", "41")][1] is False  # talla ya no listada → agotada
+    today_panda = [h for h in history if h.product_sku == "HF5441-100" and h.date == report.started_at.date()]
     assert today_panda and today_panda[0].price <= Decimal("89.99")
 
 
@@ -178,6 +179,7 @@ def test_sync_fail_safe_keeps_previous_nike_offers() -> None:
         raise httpx.ConnectError("sin red", request=request)
 
     before, after, report, _ = _sync(handler)
-    assert {(e.store_name, e.sku) for e in report.errors} == {("Nike", "DD1391-100"), ("Nike", "DH6927-111")}
+    nike_skus = {p.sku for p in SEED_PRODUCTS if p.brand in {"Nike", "Jordan"}}
+    assert {(e.store_name, e.sku) for e in report.errors} == {("Nike", sku) for sku in nike_skus}
     assert {k: v[:2] for k, v in after.items()} == before
     assert report.offers_upserted > 0  # StockX (simulado) sí se sincronizó

@@ -22,6 +22,9 @@ class Product(Base):
     name: Mapped[str] = mapped_column(String(160))
     retail_price: Mapped[Decimal] = mapped_column(Money)
     image_url: Mapped[str] = mapped_column(String(512))
+    # Segmento de la app: "men" | "women" | "unisex".
+    gender: Mapped[str] = mapped_column(String(8), default="unisex", server_default="unisex")
+    colorway: Mapped[str | None] = mapped_column(String(120), default=None)
 
     # lazy="raise": en async toda carga debe ser explícita (selectinload).
     offers: Mapped[list[StoreOffer]] = relationship(

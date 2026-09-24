@@ -18,8 +18,13 @@ Tests: `pip install -r requirements-dev.txt && pytest`.
 | GET | `/api/v1/products/{sku}/history?days=30` | `days+1` puntos `{date: "YYYY-MM-DD", price}` |
 | POST | `/api/v1/sync` | `X-API-Key` si `RADARPRICE_SYNC_API_KEY`; 409 si hay otro en curso |
 
+## Catálogo
+11 zapatillas (`app/seed/catalog.py`), tallas EU 36–46 según segmento (`gender`: `men` | `women` | `unisex`)
+y ofertas deterministas en Nike/adidas, Zalando, Foot Locker y StockX.
+Con una BD previa, el arranque añade columnas nuevas y los SKUs que falten sin borrar datos.
+
 ## Flutter
-JSON camelCase = `Product.fromJson` / `PricePoint.fromJson` sin cambios.
+JSON camelCase = `Product.fromJson` / `PricePoint.fromJson`. Campos extra: `colorway`, `gender`, `savingsPercent`.
 Emulador Android: `http://10.0.2.2:8000` (y `android:usesCleartextTraffic="true"` en debug).
 
 ## Scrapers

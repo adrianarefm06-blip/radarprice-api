@@ -6,12 +6,13 @@ import random
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.core.config import get_settings
 from app.core.stores import STORES
 from app.db.base import Base
+from app.db.schema import add_missing_columns
 from app.db.models import PriceHistory, Product, StoreOffer
 from app.db.session import create_engine_and_sessionmaker
 from app.seed.catalog import SEED_PRODUCTS, SeedProduct
@@ -24,26 +25,34 @@ async def seed_database(
     today: date | None = None,
     history_days: int = 365,
 ) -> bool:
-    """Devuelve False si ya había datos y no se pidió reset."""
+    """Siembra el catálogo. Con datos previos (sin reset) solo añade los SKUs
+    que falten y completa segmento/colorway de los existentes, sin tocar ofertas.
+    Devuelve False si no hubo nada que añadir."""
     today = today or date.today()
     now = datetime.now(UTC)
     async with sessionmaker() as session, session.begin():
         if reset:
             for table in (PriceHistory, StoreOffer, Product):
                 await session.execute(delete(table))
-        elif await session.scalar(select(func.count()).select_from(Product)):
-            return False
+        existing = {p.sku: p for p in await session.scalars(select(Product))}
 
+        added = False
         for seed in SEED_PRODUCTS:
-            session.add(_product(seed, now))
-            session.add_all(_history(seed, today, history_days))
-    return True
+            current = existing.get(seed.sku)
+            if current is None:
+                session.add(_product(seed, now))
+                session.add_all(_history(seed, today, history_days))
+                added = True
+            else:
+                current.gender, current.colorway = seed.gender, seed.colorway
+    return added
 
 
 def _product(seed: SeedProduct, now: datetime) -> Product:
     product = Product(
         sku=seed.sku, brand=seed.brand, name=seed.name,
         retail_price=seed.retail_price, image_url=seed.image_url,
+        gender=seed.gender, colorway=seed.colorway,
     )
     product.offers = [
         StoreOffer(
@@ -90,6 +99,7 @@ async def _main(reset: bool) -> None:
     try:
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
+            await conn.run_sync(add_missing_columns)
         seeded = await seed_database(sessionmaker, reset=reset)
         print("Seed aplicado" if seeded else "BD con datos: usa --reset para re-sembrar")
     finally:
