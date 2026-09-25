@@ -23,7 +23,23 @@ Vale para cualquier servicio con Docker (Render, Fly.io, Railway, VPS): exponer 
 (8000 por defecto) detrás de HTTPS y montar un volumen persistente en `/data`.
 Al arrancar se registra la configuración efectiva (`demo_data`, scrapers reales, sync) en los logs.
 
-## Endpoints
+## Render (plan gratuito)
+`render.yaml` define la API (Docker, Frankfurt) y un PostgreSQL gratuito conectado por
+`RADARPRICE_DATABASE_URL` (la URL `postgres://…` de Render se adapta sola a asyncpg).
+
+1. Render → **New → Blueprint** → elegir este repositorio → **Apply**. Crea `radarprice-api` y `radarprice-db`.
+2. Cuando el deploy termine, abrir `https://<servicio>.onrender.com/health` → `{"status":"ok"}`.
+   Los logs muestran la línea `arranque: demo_data=…` con la configuración efectiva.
+3. En el servicio → **Environment**, copiar el valor generado de `RADARPRICE_SYNC_API_KEY`.
+4. En GitHub (este repo) → **Settings → Secrets and variables → Actions**, crear:
+   `RADARPRICE_API_URL` (`https://<servicio>.onrender.com`) y `RADARPRICE_SYNC_API_KEY`.
+5. **Actions → Sync programado → Run workflow** para el primer sync; después corre cada 6 h.
+
+Limitaciones del plan gratuito (confírmalas en la web de Render, cambian con el tiempo):
+el servicio se duerme sin tráfico y el primer acceso tarda ~1 min; no hay sync dentro del
+proceso (lo lanza GitHub Actions); el PostgreSQL gratuito tiene fecha de caducidad y cupo de
+almacenamiento. `RADARPRICE_DEMO_DATA=true` mientras solo haya un scraper real.
+
 | Método | Ruta | Notas |
 |---|---|---|
 | GET | `/api/v1/products/deals?size=42.5&limit=20` | ranking por `savingsPercent` |

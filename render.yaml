@@ -1,0 +1,32 @@
+# Render Blueprint (plan gratuito): API en Docker + PostgreSQL.
+# Render → New → Blueprint → este repositorio. Ver README, sección "Render".
+services:
+  - type: web
+    name: radarprice-api
+    runtime: docker
+    plan: free
+    region: frankfurt
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: RADARPRICE_DATABASE_URL
+        fromDatabase:
+          name: radarprice-db
+          property: connectionString
+      # Clave del sync: Render la genera; cópiala al secreto RADARPRICE_SYNC_API_KEY de GitHub.
+      - key: RADARPRICE_SYNC_API_KEY
+        generateValue: true
+      # true mientras solo haya un scraper real (la app marca los precios como "Est.").
+      # Pasar a false cuando haya suficientes tiendas reales.
+      - key: RADARPRICE_DEMO_DATA
+        value: "true"
+      # Sin sync en el proceso: en el plan gratuito el servicio se duerme.
+      # Lo lanza .github/workflows/scheduled-sync.yml cada 6 h.
+
+databases:
+  - name: radarprice-db
+    plan: free
+    region: frankfurt
+    databaseName: radarprice
+    user: radarprice
