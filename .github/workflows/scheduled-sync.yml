@@ -1,0 +1,56 @@
+name: Sync programado
+
+# El plan gratuito de Render duerme el servicio: el sync periódico se lanza desde aquí.
+# Secretos del repositorio (Settings → Secrets and variables → Actions):
+#   RADARPRICE_API_URL       p. ej. https://radarprice-api.onrender.com
+#   RADARPRICE_SYNC_API_KEY  el valor generado por Render para esa variable
+on:
+  schedule:
+    - cron: "17 */6 * * *"  # cada 6 h (UTC), minuto 17 para evitar picos de GitHub
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: scheduled-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Comprobar configuración
+        env:
+          API_URL: ${{ secrets.RADARPRICE_API_URL }}
+          API_KEY: ${{ secrets.RADARPRICE_SYNC_API_KEY }}
+        run: |
+          if [ -z "$API_URL" ] || [ -z "$API_KEY" ]; then
+            echo "::warning::Faltan los secretos RADARPRICE_API_URL / RADARPRICE_SYNC_API_KEY: sync omitido."
+            echo "SKIP=1" >> "$GITHUB_ENV"
+          fi
+      - name: Despertar el servicio
+        if: env.SKIP != '1'
+        env:
+          API_URL: ${{ secrets.RADARPRICE_API_URL }}
+        run: |
+          # El arranque en frío del plan gratuito puede tardar ~1 min.
+          for i in $(seq 1 18); do
+            curl -sf --max-time 20 "$API_URL/health" && exit 0
+            sleep 10
+          done
+          echo "::error::El servicio no responde en $API_URL/health"; exit 1
+      - name: Lanzar sync
+        if: env.SKIP != '1'
+        env:
+          API_URL: ${{ secrets.RADARPRICE_API_URL }}
+          API_KEY: ${{ secrets.RADARPRICE_SYNC_API_KEY }}
+        run: |
+          status=$(curl -s -o report.json -w '%{http_code}' --max-time 900 -X POST \
+            -H "X-API-Key: $API_KEY" "$API_URL/api/v1/sync")
+          cat report.json; echo
+          case "$status" in
+            200) ;;
+            409) echo "::notice::Ya había un sync en curso." ;;
+            *) echo "::error::Sync falló con HTTP $status"; exit 1 ;;
+          esac

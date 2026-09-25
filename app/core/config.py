@@ -1,12 +1,14 @@
 from functools import lru_cache
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_prefix="RADARPRICE_", extra="ignore", frozen=True)
 
+    # SQLite (dev / disco persistente) o PostgreSQL. Acepta la URL tal cual la dan los
+    # proveedores (postgres://…, postgresql://…?sslmode=require) y la adapta a asyncpg.
     database_url: str = "sqlite+aiosqlite:///./radarprice.db"
     sql_echo: bool = False
     seed_on_startup: bool = True
@@ -31,6 +33,22 @@ class Settings(BaseSettings):
     sync_interval_minutes: int | None = Field(default=None, ge=5)
     # Nivel de los logs de la app (sync, alertas, scrapers). uvicorn configura los suyos aparte.
     log_level: str = Field(default="INFO", pattern=r"^(DEBUG|INFO|WARNING|ERROR)$")
+
+    @field_validator("database_url")
+    @classmethod
+    def _normalize_database_url(cls, value: str) -> str:
+        return normalize_database_url(value)
+
+
+def normalize_database_url(url: str) -> str:
+    """postgres(ql)://… → postgresql+asyncpg://…; `sslmode=` → `ssl=` (asyncpg). Resto intacto."""
+    for prefix in ("postgres://", "postgresql://"):
+        if url.startswith(prefix):
+            url = "postgresql+asyncpg://" + url[len(prefix):]
+            break
+    if url.startswith("postgresql+asyncpg://"):
+        url = url.replace("sslmode=", "ssl=")
+    return url
 
 
 @lru_cache

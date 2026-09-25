@@ -12,6 +12,9 @@ def create_engine_and_sessionmaker(settings: Settings) -> tuple[AsyncEngine, asy
     kwargs: dict[str, Any] = {"echo": settings.sql_echo}
     if is_sqlite and ":memory:" in settings.database_url:
         kwargs |= {"poolclass": StaticPool, "connect_args": {"check_same_thread": False}}
+    elif not is_sqlite:
+        # Postgres gestionado: conexiones que el proveedor cierra en reposo → comprobar antes de usar.
+        kwargs |= {"pool_pre_ping": True, "pool_size": 5, "max_overflow": 5, "pool_recycle": 1800}
 
     engine = create_async_engine(settings.database_url, **kwargs)
 
