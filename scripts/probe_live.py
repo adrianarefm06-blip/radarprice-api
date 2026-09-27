@@ -90,18 +90,120 @@ async def diagnose(client: httpx.AsyncClient, sku: str) -> None:
     await _raw(client, "Zalando búsqueda HTML", f"https://www.zalando.es/catalogo/?q={q}", sku, html)
 
 
+# Tiendas candidatas a segunda fuente real. Shopify expone /products.json y
+# /search/suggest.json públicos: mucho más estable que parsear HTML.
+_CANDIDATES = (
+    "www.adidas.es", "www.newbalance.es", "www.footlocker.es", "www.jdsports.es", "www.snipes.es",
+    "www.courir.es", "www.footdistrict.com", "www.sivasdescalzo.com", "www.bstn.com", "www.afew-store.com",
+    "www.43einhalb.com", "www.overkillshop.com", "www.solebox.com", "www.basket4ballers.com",
+    "www.kickgame.co.uk", "www.naked-copenhagen.com", "www.hanon-shop.com", "www.titolo.ch",
+    "www.forum-sport.com", "www.deporvillage.com", "www.sprintersports.com", "www.atmosferasport.es",
+    "www.urbanjunglestore.com", "www.einhalb.com", "www.kithe.eu", "eu.kith.com", "www.endclothing.com",
+    "www.size.co.uk", "www.asphaltgold.com", "www.allikestore.com",
+)
+
+
+async def _status(client: httpx.AsyncClient, url: str, headers: dict[str, str]) -> tuple[str, str]:
+    started = time.monotonic()
+    try:
+        response = await client.get(url, headers=headers, timeout=12)
+    except httpx.HTTPError as exc:
+        return f"{type(exc).__name__}", f"{time.monotonic() - started:.1f}s"
+    return f"HTTP {response.status_code} {len(response.content)}B", response.text[:120].replace("\n", " ")
+
+
+async def candidates(client: httpx.AsyncClient, skus: list[str]) -> None:
+    html = {"User-Agent": _UA, "Accept": "text/html,application/xhtml+xml", "Accept-Language": "es-ES,es;q=0.9"}
+    api = {"User-Agent": _UA, "Accept": "application/json"}
+    print("\n=== Tiendas candidatas ===")
+    for host in _CANDIDATES:
+        home, _ = await _status(client, f"https://{host}/", html)
+        feed, head = await _status(client, f"https://{host}/products.json?limit=1", api)
+        shopify = '"products"' in head
+        print(f"{host:<28} home={home:<22} products.json={feed:<22} shopify={shopify}")
+        if shopify:
+            for sku in skus:
+                found, body = await _status(
+                    client, f"https://{host}/search/suggest.json?q={quote(sku)}&resources[type]=product", api)
+                print(f"    suggest {sku}: {found} {body}")
+    for sku in ("HQ8708", "B75806"):
+        for path in (f"/api/products/{sku}", f"/api/products/{sku}/availability"):
+            result, body = await _status(client, f"https://www.adidas.es{path}", api)
+            print(f"adidas {path}: {result} {body}")
+
+
+async def zalando_http2(sku: str) -> None:
+    headers = {
+        "User-Agent": _UA, "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "es-ES,es;q=0.9", "Accept-Encoding": "gzip, deflate, br",
+        "Sec-Fetch-Dest": "document", "Sec-Fetch-Mode": "navigate", "Sec-Fetch-Site": "none",
+        "Upgrade-Insecure-Requests": "1",
+    }
+    print("\n=== Zalando con HTTP/2 ===")
+    try:
+        async with httpx.AsyncClient(http2=True, follow_redirects=True, timeout=15) as client:
+            await _raw(client, "Zalando búsqueda (h2)", f"https://www.zalando.es/catalogo/?q={quote(sku)}", sku, headers)
+    except ImportError as exc:
+        print(f"  sin soporte h2: {exc}")
+
+
+def nike_wall_products(html: str) -> list[tuple[str, str, str]]:
+    """(código, título, url) de los productos del __NEXT_DATA__ de una búsqueda de Nike."""
+    from app.scrapers.nike import extract_next_data
+
+    found: dict[str, tuple[str, str, str]] = {}
+    stack: list[object] = [extract_next_data(html)]
+    while stack:
+        node = stack.pop()
+        if isinstance(node, dict):
+            code = node.get("productCode") or node.get("styleColor")
+            if isinstance(code, str) and re.fullmatch(r"[A-Z0-9]{6}-\d{3}", code):
+                copy = node.get("copy")
+                title = copy.get("title") if isinstance(copy, dict) else node.get("title")
+                url = node.get("pdpUrl") or node.get("url") or ""
+                if isinstance(url, dict):
+                    url = url.get("url", "")
+                found.setdefault(code, (code, str(title), str(url)))
+            stack.extend(node.values())
+        elif isinstance(node, list):
+            stack.extend(node)
+    return list(found.values())
+
+
+async def nike_search(client: httpx.AsyncClient, sku: str) -> None:
+    html = {"User-Agent": _UA, "Accept": "text/html,application/xhtml+xml", "Accept-Language": "es-ES,es;q=0.9"}
+    response = await client.get(f"https://www.nike.com/es/w?q={quote(sku)}", headers=html)
+    products = nike_wall_products(response.text)
+    print(f"\n=== Nike búsqueda {sku}: HTTP {response.status_code}, {len(products)} productos ===")
+    for code, title, url in products[:30]:
+        mark = "  <== coincide" if code == sku else ""
+        print(f"  {code}  {title[:50]:<50} {url}{mark}")
+
+
 async def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--store", action="append", choices=sorted(SCRAPER_REGISTRY),
                         help="tienda a probar (repetible; por defecto todas)")
+    parser.add_argument("--no-stores", action="store_true", help="omite la prueba de los scrapers")
+    parser.add_argument("--candidates", action="store_true", help="sondea tiendas candidatas (Shopify, adidas)")
+    parser.add_argument("--nike-search", action="append", default=[], metavar="SKU",
+                        help="lista los productos que devuelve la búsqueda de Nike (repetible)")
+    parser.add_argument("--zalando-h2", metavar="SKU", help="prueba Zalando con HTTP/2 y cabeceras de navegador")
     parser.add_argument("--diagnose", action="append", default=[], metavar="SKU",
                         help="volcado de peticiones crudas para este SKU (repetible)")
     args = parser.parse_args()
     async with httpx.AsyncClient(follow_redirects=True, timeout=20) as client:
-        for store in args.store or sorted(SCRAPER_REGISTRY):
-            await probe_store(client, store)
+        if not args.no_stores:
+            for store in args.store or sorted(SCRAPER_REGISTRY):
+                await probe_store(client, store)
+        for sku in args.nike_search:
+            await nike_search(client, sku)
+        if args.candidates:
+            await candidates(client, ["DD1503-101", "HQ8708", "CW2288-111"])
         for sku in args.diagnose:
             await diagnose(client, sku)
+    if args.zalando_h2:
+        await zalando_http2(args.zalando_h2)
 
 
 if __name__ == "__main__":

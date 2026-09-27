@@ -6,8 +6,8 @@ name: Sonda de scrapers
 on:
   workflow_dispatch:
     inputs:
-      diagnose:
-        description: "SKUs para volcado de peticiones crudas (separados por espacios)"
+      args:
+        description: "Argumentos de scripts/probe_live.py (vacío = todas las tiendas reales)"
         required: false
         default: ""
   push:
@@ -35,11 +35,8 @@ jobs:
           python-version: "3.11"
           cache: pip
           cache-dependency-path: requirements*.txt
-      - run: pip install -r requirements.txt
+      - run: pip install -r requirements.txt h2
       - name: Sonda
         env:
-          DIAGNOSE: ${{ github.event.inputs.diagnose || 'DD1503-101 HQ8708' }}
-        run: |
-          args=""
-          for sku in $DIAGNOSE; do args="$args --diagnose $sku"; done
-          python -m scripts.probe_live $args
+          ARGS: ${{ github.event.inputs.args || '--no-stores --nike-search DD1503-101 --candidates --zalando-h2 HQ8708' }}
+        run: python -m scripts.probe_live $ARGS
