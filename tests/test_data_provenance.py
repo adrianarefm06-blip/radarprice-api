@@ -9,6 +9,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.core.config import Settings
+from app.core.stores import STORES
 from app.core.errors import SyncAlreadyRunningError
 from app.main import create_app
 from app.schemas.sync import SyncReportOut
@@ -102,7 +103,7 @@ def test_demo_sync_keeps_simulated_history_label(demo: TestClient) -> None:
 def test_registry_without_demo_runs_only_real_scrapers() -> None:
     names = [s.store_name for s in build_default_scrapers(Settings(demo_data=False, real_scrapers=("Nike",)))]
     assert names == ["Nike"]
-    assert len(build_default_scrapers(Settings(demo_data=True, real_scrapers=("Nike",)))) == 5
+    assert len(build_default_scrapers(Settings(demo_data=True, real_scrapers=("Nike",)))) == len(STORES)
 
 
 def test_sync_interval_validation() -> None:

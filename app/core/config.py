@@ -15,14 +15,15 @@ class Settings(BaseSettings):
     sync_api_key: str | None = None
     cors_origins: tuple[str, ...] = ("*",)
     # Unión de segmentos de la app (niños 28-38, mujer 35-42, hombre 39-46).
-    supported_sizes: tuple[str, ...] = (
-        "28", "29", "30", "31", "32", "33", "34", "35", "35.5", "36", "36.5", "37", "37.5",
-        "38", "38.5", "39", "40", "40.5", "41", "42", "42.5", "43", "44", "44.5", "45", "46",
+    # EU 28–50 en medias tallas: las tiendas reales publican 45.5, 47.5… y se aceptan en filtros y alertas.
+    supported_sizes: tuple[str, ...] = tuple(
+        f"{n // 2}.5" if n % 2 else str(n // 2) for n in range(56, 101)
     )
     scraper_concurrency: int = 4
-    # Tiendas con scraper real (resto simuladas). Disponibles: SCRAPER_REGISTRY (Nike, Zalando).
-    # Zalando es opt-in: RADARPRICE_REAL_SCRAPERS='["Nike","Zalando"]'. Desactivar todo: '[]'
-    real_scrapers: tuple[str, ...] = ("Nike",)
+    # Tiendas con scraper real (resto simuladas). Disponibles: SCRAPER_REGISTRY.
+    # Zalando es opt-in (su búsqueda no lleva a la ficha correcta desde servidores).
+    # Ej.: RADARPRICE_REAL_SCRAPERS='["Nike","Zalando"]'. Desactivar todo: '[]'
+    real_scrapers: tuple[str, ...] = ("Nike", "Urban Jungle", "Asphaltgold")
     http_timeout_seconds: float = 10.0
     history_retention_days: int = 365
     # Datos de demostración: ofertas de tiendas simuladas + histórico sintético sembrado.
