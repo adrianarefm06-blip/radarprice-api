@@ -29,6 +29,9 @@ STORES: Final[Mapping[str, StoreInfo]] = MappingProxyType({
         StoreInfo("Foot Locker", "footlocker.png", "https://www.footlocker.es/es/search?query={sku}", False),
         StoreInfo("Zalando", "zalando.png", "https://www.zalando.es/catalogo/?q={sku}", False),
         StoreInfo("StockX", "stockx.png", "https://stockx.com/es-es/search?s={sku}", False),
+        # Solo con scraper real (Shopify): sin ofertas de demostración en el seed.
+        StoreInfo("Urban Jungle", "urbanjungle.png", "https://www.urbanjunglestore.com/search?q={sku}", False),
+        StoreInfo("Asphaltgold", "asphaltgold.png", "https://www.asphaltgold.com/search?q={sku}", False),
     )
 })
 

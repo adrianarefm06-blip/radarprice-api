@@ -6,6 +6,7 @@ from app.core.config import Settings
 from app.core.stores import STORES
 from app.scrapers.base import BaseScraper
 from app.scrapers.nike import KNOWN_PDP_URLS, NikeScraper
+from app.scrapers.shopify import ShopifyScraper
 from app.scrapers.simulated import SimulatedStoreScraper
 from app.scrapers.zalando import KNOWN_PDP_URLS as ZALANDO_PDP_URLS
 from app.scrapers.zalando import ZalandoScraper
@@ -15,6 +16,8 @@ from app.scrapers.zalando import ZalandoScraper
 SCRAPER_REGISTRY: Final[Mapping[str, Callable[[], BaseScraper]]] = MappingProxyType({
     "Nike": lambda: NikeScraper(product_urls=KNOWN_PDP_URLS),
     "Zalando": lambda: ZalandoScraper(product_urls=ZALANDO_PDP_URLS),
+    "Urban Jungle": lambda: ShopifyScraper("Urban Jungle", "www.urbanjunglestore.com"),
+    "Asphaltgold": lambda: ShopifyScraper("Asphaltgold", "www.asphaltgold.com"),
 })
 
 

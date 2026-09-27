@@ -201,7 +201,8 @@ def test_fetch_blocked(response: httpx.Response) -> None:
 # --- registry y sync ----------------------------------------------------------
 
 def test_registry_exposes_zalando_opt_in() -> None:
-    assert set(SCRAPER_REGISTRY) == {"Nike", "Zalando"}
+    assert set(SCRAPER_REGISTRY) == {"Nike", "Zalando", "Urban Jungle", "Asphaltgold"}
+    assert "Zalando" not in Settings().real_scrapers
     by_store = {s.store_name: s for s in build_default_scrapers(Settings(real_scrapers=("Zalando",)))}
     assert isinstance(by_store["Zalando"], ZalandoScraper)
     assert not isinstance(build_default_scrapers(Settings(real_scrapers=()))[0], ZalandoScraper)

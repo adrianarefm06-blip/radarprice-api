@@ -85,7 +85,16 @@ Emulador Android: `http://10.0.2.2:8000` (y `android:usesCleartextTraffic="true"
 | Tienda | Módulo | Por defecto | Fuente |
 |---|---|---|---|
 | Nike | `app/scrapers/nike.py` | activo | `__NEXT_DATA__` de la PDP |
+| Urban Jungle | `app/scrapers/shopify.py` | activo | API pública Shopify (`/search/suggest.json` + `/products/{handle}.js`) |
+| Asphaltgold | `app/scrapers/shopify.py` | activo | ídem |
 | Zalando | `app/scrapers/zalando.py` | opt-in: `RADARPRICE_REAL_SCRAPERS='["Nike","Zalando"]'` | JSON-LD `Product` / JSON embebido |
 
+- El sync usa HTTP/2: Zalando (Akamai) deja colgadas las peticiones HTTP/1.1 desde servidores. Aun así su búsqueda
+  no lleva a la ficha del SKU desde servidores, por eso sigue opt-in.
+- Shopify: el producto solo se acepta si el SKU del fabricante aparece en sus variantes, etiquetas, handle o
+  descripción; moneda comprobada (EUR) y tallas no EU descartadas. Otra tienda Shopify = una línea en el registro.
+- Sonda en vivo desde GitHub Actions (las tiendas bloquean muchos entornos de desarrollo):
+  workflow **Sonda de scrapers** → `python -m scripts.probe_live` (tallas, stock y precio por SKU y tienda).
+
 Fallo de una tienda (bloqueo, red, HTML desconocido) → error en el informe del sync; sus ofertas previas se conservan.
-Prueba en vivo: `python -m app.scrapers.zalando HQ8708`. Tienda nueva: subclase de `HttpScraper` y alta en `SCRAPER_REGISTRY`.
+Prueba en vivo: `python -m app.scrapers.zalando HQ8708` · `python -m app.scrapers.shopify www.urbanjunglestore.com HQ8708`. Tienda nueva: subclase de `HttpScraper` y alta en `SCRAPER_REGISTRY`.

@@ -70,6 +70,9 @@ _BROWSER_HEADERS: Final[Mapping[str, str]] = MappingProxyType({
     "Accept-Language": "es-ES,es;q=0.9",
     "Cache-Control": "no-cache",
     "Upgrade-Insecure-Requests": "1",
+    "Sec-Fetch-Dest": "document",
+    "Sec-Fetch-Mode": "navigate",
+    "Sec-Fetch-Site": "none",
 })
 
 

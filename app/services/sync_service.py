@@ -85,7 +85,9 @@ class SyncService:
 
     async def _scrape_all(self, products: Sequence[ProductRef]) -> list[_ScrapeResult]:
         semaphore = asyncio.Semaphore(max(1, self._settings.scraper_concurrency))
+        # HTTP/2: Zalando (Akamai) deja colgadas las peticiones HTTP/1.1 de servidores.
         async with httpx.AsyncClient(
+            http2=True,
             timeout=self._settings.http_timeout_seconds,
             headers={"User-Agent": _USER_AGENT},
             follow_redirects=True,
