@@ -35,8 +35,8 @@ jobs:
           python-version: "3.11"
           cache: pip
           cache-dependency-path: requirements*.txt
-      - run: pip install -r requirements.txt h2
+      - run: pip install -r requirements.txt
       - name: Sonda
         env:
-          ARGS: ${{ github.event.inputs.args || '--no-stores --nike-search DD1503-101 --candidates --zalando-h2 HQ8708' }}
+          ARGS: ${{ github.event.inputs.args || '--store Zalando --shopify www.urbanjunglestore.com:HQ8708 --shopify www.asphaltgold.com:CW2288-111 --shopify www.afew-store.com:DD1503-101 --diagnose DD1503-101' }}
         run: python -m scripts.probe_live $ARGS

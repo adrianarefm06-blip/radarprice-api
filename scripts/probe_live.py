@@ -69,6 +69,8 @@ async def _raw(client: httpx.AsyncClient, label: str, url: str, sku: str, header
     for match in list(re.finditer(re.escape(sku), body, re.I))[:3]:
         snippet = body[max(0, match.start() - 160): match.end() + 160].replace("\n", " ")
         print(f"  …{snippet}…")
+    if response.status_code >= 400 and len(body) < 2000:
+        print(f"  cuerpo: {body}")
     if not hrefs and response.status_code == 200:
         print(f"  inicio: {body[:300]!r}")
 
@@ -180,6 +182,25 @@ async def nike_search(client: httpx.AsyncClient, sku: str) -> None:
         print(f"  {code}  {title[:50]:<50} {url}{mark}")
 
 
+async def shopify(client: httpx.AsyncClient, host: str, sku: str) -> None:
+    """Primer resultado de /search/suggest.json → variantes de /products/{handle}.js."""
+    api = {"User-Agent": _UA, "Accept": "application/json"}
+    print(f"\n=== Shopify {host} · {sku} ===")
+    cart = await client.get(f"https://{host}/cart.js", headers=api)
+    print(f"  moneda: {cart.json().get('currency') if cart.status_code == 200 else cart.status_code}")
+    suggest = await client.get(f"https://{host}/search/suggest.json",
+                               params={"q": sku, "resources[type]": "product", "resources[limit]": "3"}, headers=api)
+    for item in suggest.json()["resources"]["results"]["products"]:
+        print(f"  sugerido: {item.get('handle')} · {item.get('title')} · {item.get('price')} · {item.get('url')}")
+        product = (await client.get(f"https://{host}/products/{item['handle']}.js", headers=api)).json()
+        print(f"    options={[o.get('name') if isinstance(o, dict) else o for o in product.get('options', [])]} "
+              f"tags={product.get('tags')} vendor={product.get('vendor')}")
+        for variant in product.get("variants", [])[:30]:
+            print(f"    {variant.get('title')!r:<22} sku={variant.get('sku')!r:<22} "
+                  f"precio={variant.get('price')} antes={variant.get('compare_at_price')} "
+                  f"disp={variant.get('available')}")
+
+
 async def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--store", action="append", choices=sorted(SCRAPER_REGISTRY),
@@ -188,11 +209,14 @@ async def main() -> None:
     parser.add_argument("--candidates", action="store_true", help="sondea tiendas candidatas (Shopify, adidas)")
     parser.add_argument("--nike-search", action="append", default=[], metavar="SKU",
                         help="lista los productos que devuelve la búsqueda de Nike (repetible)")
+    parser.add_argument("--shopify", action="append", default=[], metavar="HOST:SKU",
+                        help="detalle de variantes de una tienda Shopify (repetible)")
     parser.add_argument("--zalando-h2", metavar="SKU", help="prueba Zalando con HTTP/2 y cabeceras de navegador")
     parser.add_argument("--diagnose", action="append", default=[], metavar="SKU",
                         help="volcado de peticiones crudas para este SKU (repetible)")
     args = parser.parse_args()
-    async with httpx.AsyncClient(follow_redirects=True, timeout=20) as client:
+    # Mismo cliente que SyncService (HTTP/2).
+    async with httpx.AsyncClient(http2=True, follow_redirects=True, timeout=20) as client:
         if not args.no_stores:
             for store in args.store or sorted(SCRAPER_REGISTRY):
                 await probe_store(client, store)
@@ -200,6 +224,9 @@ async def main() -> None:
             await nike_search(client, sku)
         if args.candidates:
             await candidates(client, ["DD1503-101", "HQ8708", "CW2288-111"])
+        for spec in args.shopify:
+            host, _, sku = spec.partition(":")
+            await shopify(client, host, sku)
         for sku in args.diagnose:
             await diagnose(client, sku)
     if args.zalando_h2:
