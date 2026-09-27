@@ -1,0 +1,45 @@
+name: Sonda de scrapers
+
+# Ejecuta los scrapers reales contra las webs de las tiendas desde un runner de GitHub
+# e imprime un informe (tallas, stock, precio mínimo o error por SKU). No falla si una
+# tienda cambia: es diagnóstico. Se lanza a mano o al tocar los scrapers.
+on:
+  workflow_dispatch:
+    inputs:
+      diagnose:
+        description: "SKUs para volcado de peticiones crudas (separados por espacios)"
+        required: false
+        default: ""
+  push:
+    branches-ignore: [main]
+    paths:
+      - "app/scrapers/**"
+      - "scripts/probe_live.py"
+      - ".github/workflows/scraper-probe.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: scraper-probe-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements*.txt
+      - run: pip install -r requirements.txt
+      - name: Sonda
+        env:
+          DIAGNOSE: ${{ github.event.inputs.diagnose || 'DD1503-101 HQ8708' }}
+        run: |
+          args=""
+          for sku in $DIAGNOSE; do args="$args --diagnose $sku"; done
+          python -m scripts.probe_live $args
