@@ -134,6 +134,15 @@ def _product(
     )
 
 
+def _live(sku: str, brand: str, name: str, colorway: str, gender: Gender, retail: str) -> SeedProduct:
+    """Modelo solo con datos reales: sin ofertas de demostración ni histórico sintético.
+    Hasta el primer sync no tiene ofertas (la app no lo muestra en los chollos)."""
+    return SeedProduct(
+        sku=sku, brand=brand, name=name, colorway=colorway, gender=gender,
+        retail_price=Decimal(retail), offers=MappingProxyType({}),
+    )
+
+
 SEED_PRODUCTS: Final[tuple[SeedProduct, ...]] = (
     _product("DH6927-111", "Jordan", 'Air Jordan 4 Retro "Military Black"', "White/Black-Neutral Grey", "men",
              "210.00", _Market(official="Nike", foot_locker=(1.0, 1.05), stockx_premium=1.12)),
@@ -161,6 +170,17 @@ SEED_PRODUCTS: Final[tuple[SeedProduct, ...]] = (
     _product("604133-050", "Nike", 'Air Max Plus "Triple Black"', "Black/Black-Black", "men",
              "189.99", _Market(official="Nike", official_sale=0.2, zalando=(0.75, 0.9), foot_locker=(0.8, 0.95),
                                stockx_premium=0.8)),
+    # Solo datos reales. Elegidos con la sonda de descubrimiento (sep. 2026): en stock a la vez en
+    # Urban Jungle y Asphaltgold (y Nike ES para los Nike), para que haya comparación real.
+    _live("CJ9179-200", "Nike", 'Air Force 1 \'07 WB "Flax"', "Flax/Wheat-Gum Light Brown", "men", "129.99"),
+    _live("IX1201-100", "Nike", 'Tennis Classic CS "White"', "White/White", "men", "89.99"),
+    _live("DB9953-001", "Nike", 'Lahar Low "Black" (W)', "Black/Black", "women", "139.99"),
+    _live("KK4722", "adidas", 'Superstar II "Core Black"', "Core Black/Cloud White", "unisex", "120.00"),
+    _live("KK4723", "adidas", 'Superstar II "Cloud White"', "Cloud White/Core Black", "unisex", "120.00"),
+    _live("HQ7262", "adidas", 'Handball Spezial "Blue"', "Blue/Cloud White/Gum", "unisex", "110.00"),
+    _live("KI2177", "adidas", 'Handball Spezial "White" (W)', "Cloud White/Gum", "women", "120.00"),
+    _live("IF6562", "adidas", 'Handball Spezial "Beige" (W)', "Beige/Cloud White/Gum", "women", "110.00"),
+    _live("U7409HK", "New Balance", '740 "Mushroom"', "Mushroom/Timberwolf", "unisex", "120.00"),
 )
 
 SEED_BY_SKU: Final[Mapping[str, SeedProduct]] = MappingProxyType({p.sku: p for p in SEED_PRODUCTS})

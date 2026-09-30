@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 
 from app.core.config import Settings
 from app.main import create_app
+from app.seed.catalog import SEED_PRODUCTS
 
 
 @pytest.fixture
@@ -16,7 +17,8 @@ def client() -> Iterator[TestClient]:
 
 def test_deals_ranked_by_savings(client: TestClient) -> None:
     body = client.get("/api/v1/products/deals", params={"limit": 50}).json()
-    assert len(body) == 11
+    # Los modelos solo reales no tienen ofertas hasta el primer sync: no son chollos todavía.
+    assert len(body) == sum(1 for p in SEED_PRODUCTS if p.offers) == 11
     savings = [p["savingsPercent"] for p in body]
     assert savings == sorted(savings, reverse=True)
     first = body[0]
@@ -75,18 +77,18 @@ def test_sync_disabled_without_key() -> None:
 
 def test_catalog_pagination(client: TestClient) -> None:
     full = [p["sku"] for p in client.get("/api/v1/products").json()]
-    assert len(full) == 11 and full == sorted(full)
-    first = client.get("/api/v1/products", params={"limit": 5}).json()
-    rest = client.get("/api/v1/products", params={"limit": 5, "offset": 5}).json()
-    last = client.get("/api/v1/products", params={"limit": 5, "offset": 10}).json()
-    assert [p["sku"] for p in first + rest + last] == full and len(last) == 1
+    assert len(full) == len(SEED_PRODUCTS) == 20 and full == sorted(full)
+    first = client.get("/api/v1/products", params={"limit": 8}).json()
+    rest = client.get("/api/v1/products", params={"limit": 8, "offset": 8}).json()
+    last = client.get("/api/v1/products", params={"limit": 8, "offset": 16}).json()
+    assert [p["sku"] for p in first + rest + last] == full and len(last) == 4
     assert client.get("/api/v1/products", params={"limit": 501}).status_code == 422
 
 
 def test_sync_requires_key_and_updates(client: TestClient) -> None:
     assert client.post("/api/v1/sync").status_code == 401
     report = client.post("/api/v1/sync", headers={"X-API-Key": "secret"}).json()
-    assert report["productsProcessed"] == 11
+    assert report["productsProcessed"] == len(SEED_PRODUCTS)
     assert report["offersUpserted"] > 0
-    assert report["historyPointsUpserted"] == 11
+    assert report["historyPointsUpserted"] == sum(1 for p in SEED_PRODUCTS if p.offers)  # solo con stock
     assert report["errors"] == []

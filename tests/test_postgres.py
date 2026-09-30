@@ -17,6 +17,7 @@ from app.core.config import Settings, normalize_database_url
 from app.db.base import Base
 from app.db.session import create_engine_and_sessionmaker
 from app.main import create_app
+from app.seed.catalog import SEED_PRODUCTS
 from app.scrapers.base import BaseScraper, ProductRef, ScrapedOffer
 from app.services.sync_service import SyncService
 
@@ -69,7 +70,7 @@ def test_full_flow_on_postgres() -> None:
 
     with TestClient(create_app(settings)) as client:  # arranque: añade columnas y siembra
         products = client.get("/api/v1/products").json()
-        assert len(products) == 11 and all(p["sizeOffers"] == {} for p in products)
+        assert len(products) == len(SEED_PRODUCTS) and all(p["sizeOffers"] == {} for p in products)
 
         alert = client.post("/api/v1/alerts", headers=DEVICE,
                             json={"sku": "HQ8708", "targetPrice": 80, "targetSize": "42"}).json()
@@ -86,7 +87,7 @@ def test_full_flow_on_postgres() -> None:
 
     # Reinicio: los datos persisten y el seed no duplica.
     with TestClient(create_app(settings)) as client:
-        assert len(client.get("/api/v1/products").json()) == 11
+        assert len(client.get("/api/v1/products").json()) == len(SEED_PRODUCTS)
         fired = client.get("/api/v1/alerts", headers=DEVICE).json()
         assert len(fired) == 1 and fired[0]["triggeredPrice"] == 79.95
         assert client.delete(f"/api/v1/alerts/{fired[0]['id']}", headers=DEVICE).status_code == 204
