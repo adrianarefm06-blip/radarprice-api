@@ -15,7 +15,7 @@ from app.db.base import Base
 from app.db.schema import add_missing_columns
 from app.db.models import PriceHistory, Product, StoreOffer
 from app.db.session import create_engine_and_sessionmaker
-from app.seed.catalog import SEED_PRODUCTS, SeedProduct
+from app.seed.catalog import LEGACY_IMAGE_CDN, SEED_PRODUCTS, SeedProduct
 
 
 async def seed_database(
@@ -47,6 +47,8 @@ async def seed_database(
                 added = True
             else:
                 current.gender, current.colorway = seed.gender, seed.colorway
+                if current.image_url.startswith(LEGACY_IMAGE_CDN):
+                    current.image_url = seed.image_url
     return added
 
 

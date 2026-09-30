@@ -17,7 +17,23 @@ from typing import Final, Literal
 Quote = tuple[Decimal, bool]
 _PriceFn = Callable[[random.Random], Decimal]
 Gender = Literal["men", "women", "unisex"]
-_IMAGE_CDN: Final = "https://cdn.radarprice.app/products"
+# CDN propio previsto al inicio; nunca existió. Las filas antiguas que lo usan se corrigen al arrancar.
+LEGACY_IMAGE_CDN: Final = "https://cdn.radarprice.app/"
+
+# Foto inicial verificada en vivo (el SKU coincide en la tienda de origen) para modelos que
+# ninguna tienda activa aporta. El resto arranca sin foto ("" → monograma en la app) y el
+# sync pone la de la tienda real (la oficial primero). Verificadas: sonda de sep. 2026.
+FALLBACK_IMAGES: Final[Mapping[str, str]] = MappingProxyType({
+    # New Balance (CDN oficial Scene7).
+    "BB550WT1": "https://nb.scene7.com/is/image/NB/bb550wt1_nb_02_i?$pdpflexf2$&wid=800&hei=800",
+    # afew-store.com (Shopify): ni Nike ES ni las tiendas activas venden ya estos modelos.
+    "DH6927-111": "https://cdn.shopify.com/s/files/1/2718/4356/files/"
+                  "air-jordan-4-retro-white-black-neutral-grey-dh6927-111-footwear_20_3E_20sneaker.jpg"
+                  "?v=1763453595&width=800",
+    "DD1503-101": "https://cdn.shopify.com/s/files/1/2718/4356/files/"
+                  "nike-wmns-dunk-low-white-black-white-dd1503-101-footwear_20_3E_20sneaker.jpg"
+                  "?v=1715609267&width=800",
+})
 
 MEN_SIZES: Final = ("39", "40", "40.5", "41", "42", "42.5", "43", "44", "44.5", "45", "46")
 WOMEN_SIZES: Final = ("36", "36.5", "37.5", "38", "38.5", "39", "40", "40.5", "41", "42")
@@ -41,7 +57,7 @@ class SeedProduct:
 
     @property
     def image_url(self) -> str:
-        return f"{_IMAGE_CDN}/{self.sku.lower()}.webp"
+        return FALLBACK_IMAGES.get(self.sku, "")
 
 
 @dataclass(frozen=True, slots=True)

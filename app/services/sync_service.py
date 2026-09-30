@@ -143,6 +143,8 @@ class SyncService:
                         offer.last_updated = now
                         marked_out += 1
 
+            images_updated = await self._update_images(session, results)
+
             await session.flush()
             # Sin demo, el histórico solo refleja precios reales (y se marca como tal).
             demo = self._settings.demo_data
@@ -173,7 +175,31 @@ class SyncService:
             "offers_marked_out_of_stock": marked_out,
             "history_points_upserted": history_upserted,
             "alerts_triggered": len(fired),
+            "images_updated": images_updated,
         }
+
+    @staticmethod
+    async def _update_images(session: AsyncSession, results: Sequence[_ScrapeResult]) -> int:
+        """Foto real del producto: la de la primera tienda real que la aporte.
+
+        `results` sigue el orden de los scrapers (STORES), con la tienda oficial primero,
+        así que su foto prevalece. Sin foto nueva se conserva la anterior.
+        """
+        images: dict[str, str] = {}
+        for result in results:
+            if not result.is_live or not result.offers:
+                continue
+            image = next((o.image_url for o in result.offers if o.image_url), None)
+            if image is not None:
+                images.setdefault(result.sku, image)
+        if not images:
+            return 0
+        updated = 0
+        for product in await session.scalars(select(Product).where(Product.sku.in_(images))):
+            if product.image_url != images[product.sku]:
+                product.image_url = images[product.sku]
+                updated += 1
+        return updated
 
     @staticmethod
     async def _upsert_history(session: AsyncSession, sku: str, day: date, price: Decimal, source: str) -> int:

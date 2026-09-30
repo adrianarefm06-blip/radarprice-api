@@ -23,6 +23,7 @@ from collections.abc import Mapping, Sequence
 from decimal import Decimal
 from types import MappingProxyType
 from typing import Any, Final
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 import httpx
 
@@ -159,8 +160,22 @@ def _cents(value: Any) -> Decimal | None:
     return price if price > 0 else None
 
 
+def featured_image(product: Mapping[str, Any], *, width: int = 800) -> str | None:
+    """Foto principal del CDN de Shopify, redimensionada para móvil. Sin foto → None."""
+    raw = product.get("featured_image")
+    if not isinstance(raw, str) or not raw.strip():
+        return None
+    url = "https:" + raw if raw.startswith("//") else raw
+    if not url.startswith("https://"):
+        return None
+    parts = urlsplit(url)
+    query = [(k, v) for k, v in parse_qsl(parts.query) if k != "width"] + [("width", str(width))]
+    return urlunsplit(parts._replace(query=urlencode(query)))
+
+
 def parse_product(product: Mapping[str, Any], *, url: str, store: str) -> list[ScrapedOffer]:
     index = _size_option_index(product)
+    image = featured_image(product)
     by_size: dict[str, ScrapedOffer] = {}
     for variant in product.get("variants") or []:
         if not isinstance(variant, dict):
@@ -178,6 +193,7 @@ def parse_product(product: Mapping[str, Any], *, url: str, store: str) -> list[S
             in_stock=variant.get("available") is True,  # sin señal → agotado
             affiliate_url=url,
             original_price=original if original is not None and original > price else None,
+            image_url=image,
         )
         current = by_size.get(size)
         if current is None or _better(offer, current):
