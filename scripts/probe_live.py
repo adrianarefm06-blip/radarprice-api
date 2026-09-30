@@ -235,10 +235,40 @@ async def images(client: httpx.AsyncClient) -> None:
     print(f"Shopify featured_image: {product.get('featured_image')!r} images={len(product.get('images') or [])}")
 
 
+_IMAGE_SHOPS = (
+    "www.afew-store.com", "eu.kith.com", "www.overkillshop.com", "www.asphaltgold.com",
+    "www.urbanjunglestore.com", "www.kickgame.co.uk", "www.footdistrict.com",
+)
+
+
+async def find_image(client: httpx.AsyncClient, sku: str) -> None:
+    """Foto verificada (el SKU coincide) en tiendas Shopify, aunque no se usen para precios."""
+    from app.scrapers.shopify import candidate_handles, featured_image, product_matches_sku
+
+    api = {"User-Agent": _UA, "Accept": "application/json"}
+    print(f"\n=== Foto de {sku} en tiendas Shopify ===")
+    for host in _IMAGE_SHOPS:
+        try:
+            suggest = await client.get(f"https://{host}/search/suggest.json", headers=api,
+                                       params={"q": sku, "resources[type]": "product", "resources[limit]": "5"})
+            for handle in candidate_handles(suggest.json()):
+                product = (await client.get(f"https://{host}/products/{handle}.js", headers=api)).json()
+                if product_matches_sku(product, sku):
+                    image = featured_image(product)
+                    print(f"  {host}: {handle} → {image}  [{await _head(client, image) if image else '-'}]")
+                    break
+            else:
+                print(f"  {host}: sin coincidencia")
+        except (httpx.HTTPError, ValueError, KeyError, ScraperError) as exc:
+            print(f"  {host}: error {exc!r}")
+
+
 async def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--store", action="append", choices=sorted(SCRAPER_REGISTRY),
                         help="tienda a probar (repetible; por defecto todas)")
+    parser.add_argument("--find-image", action="append", default=[], metavar="SKU",
+                        help="busca una foto verificada del SKU en tiendas Shopify (repetible)")
     parser.add_argument("--images", action="store_true", help="sondea fuentes de imágenes de producto")
     parser.add_argument("--no-stores", action="store_true", help="omite la prueba de los scrapers")
     parser.add_argument("--candidates", action="store_true", help="sondea tiendas candidatas (Shopify, adidas)")
@@ -257,6 +287,8 @@ async def main() -> None:
                 await probe_store(client, store)
         if args.images:
             await images(client)
+        for sku in args.find_image:
+            await find_image(client, sku)
         for sku in args.nike_search:
             await nike_search(client, sku)
         if args.candidates:

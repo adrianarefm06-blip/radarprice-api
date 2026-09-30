@@ -17,4 +17,5 @@ class SyncReportOut(CamelModel):
     offers_marked_out_of_stock: int
     history_points_upserted: int
     alerts_triggered: int = 0  # disparos nuevos en este sync (pendientes de notificar)
+    images_updated: int = 0  # productos cuya foto cambió a la de una tienda real
     errors: list[SyncErrorOut]

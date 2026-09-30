@@ -59,6 +59,7 @@ _MAX_NODES: Final = 250_000
 _EU_RANGE: Final = (28.0, 50.0)
 
 _NEXT_DATA_RE: Final = re.compile(r"<script[^>]*\bid=[\"']__NEXT_DATA__[\"'][^>]*>(.*?)</script>", re.S | re.I)
+_OG_IMAGE_RE: Final = re.compile(r"<meta[^>]+property=[\"']og:image[\"'][^>]*content=[\"']([^\"']+)[\"']", re.I)
 _CANONICAL_RE: Final = re.compile(r"<link[^>]+rel=[\"']canonical[\"'][^>]*href=[\"']([^\"']+)[\"']", re.I)
 _EU_LABEL_RE: Final = re.compile(r"\bEU\s*(\d{2}(?:[.,]5)?)(?!\d)", re.I)
 _BARE_SIZE_RE: Final = re.compile(r"\d{2}(?:[.,]5)?")
@@ -198,6 +199,7 @@ def parse_product_page(html: str, sku: str, *, page_url: str | None = None) -> l
 
     product_price = extract_price(node)
     url = _product_url(node, html, page_url, sku)
+    image = extract_image(html)
     offers: dict[str, ScrapedOffer] = {}
     for size_node in node["sizes"]:
         if not isinstance(size_node, dict):
@@ -211,11 +213,22 @@ def parse_product_page(html: str, sku: str, *, page_url: str | None = None) -> l
         in_stock = size_in_stock(size_node)
         current = offers.get(size)
         if current is None or (in_stock and not current.in_stock):
-            offers[size] = ScrapedOffer(size=size, price=price, in_stock=in_stock, affiliate_url=url)
+            offers[size] = ScrapedOffer(
+                size=size, price=price, in_stock=in_stock, affiliate_url=url, image_url=image,
+            )
 
     if not offers:
         raise ScraperError(f"Nike: sin tallas EU reconocibles para {sku}")
     return sorted(offers.values(), key=lambda o: float(o.size))
+
+
+def extract_image(html: str) -> str | None:
+    """og:image de la PDP (foto principal del color). Solo HTTPS; si no, None."""
+    match = _OG_IMAGE_RE.search(html)
+    if match is None:
+        return None
+    url = match.group(1).replace("&amp;", "&").strip()
+    return url if url.startswith("https://") else None
 
 
 def extract_next_data(html: str) -> Any | None:

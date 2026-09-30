@@ -39,6 +39,8 @@ class ScrapedOffer:
     affiliate_url: str
     # Precio tachado (PVP antes de rebaja). None = la tienda no lo informa.
     original_price: Decimal | None = None
+    # Foto del producto en la tienda (igual en todas sus tallas). None = no disponible.
+    image_url: str | None = None
 
     def __post_init__(self) -> None:
         if not self.size.strip():
@@ -49,6 +51,8 @@ class ScrapedOffer:
             raise ValueError(f"precio original inválido: {self.original_price}")
         if not self.affiliate_url.startswith(("https://", "http://")):
             raise ValueError(f"URL inválida: {self.affiliate_url}")
+        if self.image_url is not None and not self.image_url.startswith("https://"):
+            raise ValueError(f"URL de imagen inválida (se exige HTTPS): {self.image_url}")
 
 
 class BaseScraper(ABC):
