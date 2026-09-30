@@ -201,10 +201,45 @@ async def shopify(client: httpx.AsyncClient, host: str, sku: str) -> None:
                   f"disp={variant.get('available')}")
 
 
+_OG_IMAGE_RE = re.compile(r"<meta[^>]+property=[\"']og:image[\"'][^>]*content=[\"']([^\"']+)", re.I)
+
+
+async def _head(client: httpx.AsyncClient, url: str) -> str:
+    try:
+        response = await client.get(url, headers={"User-Agent": _UA, "Accept": "image/*"}, timeout=15)
+    except httpx.HTTPError as exc:
+        return type(exc).__name__
+    return f"HTTP {response.status_code} {response.headers.get('content-type')} {len(response.content)}B"
+
+
+async def images(client: httpx.AsyncClient) -> None:
+    """Fuentes de imagen: CDN Scene7 de Nike / New Balance por SKU, og:image de la PDP y Shopify."""
+    print("\n=== Imágenes ===")
+    for seed in SEED_PRODUCTS:
+        style = seed.sku.replace("-", "_")
+        candidates = {
+            "nike-scene7": f"https://secure-images.nike.com/is/image/DotCom/{style}",
+            "nike-scene7-png": f"https://secure-images.nike.com/is/image/DotCom/{style}?fmt=png-alpha&wid=800",
+            "nb-scene7": f"https://nb.scene7.com/is/image/NB/{seed.sku.lower()}_nb_02_i?$pdpflexf2$&wid=800&hei=800",
+        }
+        for label, url in candidates.items():
+            print(f"{seed.sku:<12} {label:<16} {await _head(client, url)}  {url}")
+    html = {"User-Agent": _UA, "Accept": "text/html", "Accept-Language": "es-ES,es;q=0.9"}
+    pdp = await client.get("https://www.nike.com/es/t/dunk-low-retro-zapatillas-hombre-GeHBr62V/HF5441-100", headers=html)
+    og = _OG_IMAGE_RE.search(pdp.text)
+    print(f"Nike PDP og:image: {og.group(1) if og else None}")
+    if og:
+        print(f"  → {await _head(client, og.group(1))}")
+    product = (await client.get("https://www.urbanjunglestore.com/products/adidas-campus-00s-core-black-hq8708.js",
+                                headers={"User-Agent": _UA, "Accept": "application/json"})).json()
+    print(f"Shopify featured_image: {product.get('featured_image')!r} images={len(product.get('images') or [])}")
+
+
 async def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--store", action="append", choices=sorted(SCRAPER_REGISTRY),
                         help="tienda a probar (repetible; por defecto todas)")
+    parser.add_argument("--images", action="store_true", help="sondea fuentes de imágenes de producto")
     parser.add_argument("--no-stores", action="store_true", help="omite la prueba de los scrapers")
     parser.add_argument("--candidates", action="store_true", help="sondea tiendas candidatas (Shopify, adidas)")
     parser.add_argument("--nike-search", action="append", default=[], metavar="SKU",
@@ -220,6 +255,8 @@ async def main() -> None:
         if not args.no_stores:
             for store in args.store or sorted(SCRAPER_REGISTRY):
                 await probe_store(client, store)
+        if args.images:
+            await images(client)
         for sku in args.nike_search:
             await nike_search(client, sku)
         if args.candidates:
