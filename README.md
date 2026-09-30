@@ -96,5 +96,19 @@ Emulador Android: `http://10.0.2.2:8000` (y `android:usesCleartextTraffic="true"
 - Sonda en vivo desde GitHub Actions (las tiendas bloquean muchos entornos de desarrollo):
   workflow **Sonda de scrapers** → `python -m scripts.probe_live` (tallas, stock y precio por SKU y tienda).
 
+### Fotos de producto
+- Cada scraper real aporta la foto de la tienda (`ScrapedOffer.image_url`): Nike → `og:image` de la PDP;
+  Shopify → `featured_image` redimensionada (`width=800`). Solo HTTPS.
+- El sync guarda la de la primera tienda real con foto, en el orden de `STORES` (oficial primero); si ninguna
+  la aporta se conserva la anterior. El informe del sync incluye `imagesUpdated`.
+- Modelos que ninguna tienda activa vende: foto verificada fija en `FALLBACK_IMAGES` (app/seed/catalog.py).
+  Al arrancar se corrigen las filas que apuntaban al antiguo `cdn.radarprice.app` (nunca existió).
+- Sin foto → `imageUrl: ""` y la app muestra el monograma de la marca. Logos de tienda: `storeLogoUrl: ""`
+  (la app pinta la inicial).
+- Sonda: `python -m scripts.probe_live --no-stores --find-image SKU` busca una foto verificada en tiendas Shopify.
+
+### Privacidad
+`GET /privacidad`: política de privacidad en HTML estático (URL para las fichas de Google Play / App Store).
+
 Fallo de una tienda (bloqueo, red, HTML desconocido) → error en el informe del sync; sus ofertas previas se conservan.
 Prueba en vivo: `python -m app.scrapers.zalando HQ8708` · `python -m app.scrapers.shopify www.urbanjunglestore.com HQ8708`. Tienda nueva: subclase de `HttpScraper` y alta en `SCRAPER_REGISTRY`.

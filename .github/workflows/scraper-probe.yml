@@ -38,5 +38,5 @@ jobs:
       - run: pip install -r requirements.txt
       - name: Sonda
         env:
-          ARGS: ${{ github.event.inputs.args || '--no-stores --find-image DH6927-111 --find-image DD1503-101 --find-image BB550WT1' }}
+          ARGS: ${{ github.event.inputs.args || '' }}
         run: python -m scripts.probe_live $ARGS

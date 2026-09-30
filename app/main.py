@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.api.v1.router import api_router
+from app.api.legal import router as legal_router
 from app.core.config import Settings, get_settings
 from app.core.errors import ProductNotFoundError, SyncAlreadyRunningError
 from app.db.base import Base
@@ -89,6 +90,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return {"status": "ok"}
 
     app.include_router(api_router, prefix="/api/v1")
+    app.include_router(legal_router)
     return app
 
 
