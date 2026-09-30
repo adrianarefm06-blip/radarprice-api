@@ -55,7 +55,8 @@ class ShopifyScraper(HttpScraper):
         currency: str = "EUR",
         max_retries: int = 2,
         backoff_seconds: float = 1.0,
-        min_interval_seconds: float = 1.0,
+        # Shopify limita por IP (429): ~1 petición cada 2 s por tienda.
+        min_interval_seconds: float = 2.0,
     ) -> None:
         super().__init__(
             max_retries=max_retries, backoff_seconds=backoff_seconds, min_interval_seconds=min_interval_seconds,

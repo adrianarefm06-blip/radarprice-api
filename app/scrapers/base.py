@@ -88,6 +88,7 @@ class HttpScraper(BaseScraper, ABC):
     _retryable_status: ClassVar[frozenset[int]] = frozenset({429, 500, 502, 503, 504})
     _blocked_status: ClassVar[frozenset[int]] = frozenset({401, 403})
     _marker_scan_bytes: ClassVar[int] = 50_000
+    max_retry_after_seconds: ClassVar[float] = 30.0
 
     def __init__(
         self,
@@ -124,6 +125,7 @@ class HttpScraper(BaseScraper, ABC):
     async def _get(self, client: httpx.AsyncClient, url: str) -> httpx.Response:
         last_error: object = None
         for attempt in range(self._max_retries + 1):
+            retry_after: float | None = None
             await self._throttle()
             try:
                 response = await client.get(url, headers=dict(self.default_headers))
@@ -135,13 +137,16 @@ class HttpScraper(BaseScraper, ABC):
                     raise ScraperBlockedError(f"{self.store_name}: HTTP {status} (bloqueado)")
                 if status in self._retryable_status:
                     last_error = f"HTTP {status}"
+                    retry_after = parse_retry_after(response.headers.get("retry-after"))
                 elif status >= 400:
                     raise ScraperError(f"{self.store_name}: HTTP {status}")
                 else:
                     self._raise_if_blocked(response)
                     return response
             if attempt < self._max_retries:
-                await asyncio.sleep(self._backoff_seconds * 2**attempt)
+                backoff = self._backoff_seconds * 2**attempt
+                # 429/503 con Retry-After: esperar lo que pide la tienda (acotado) antes de reintentar.
+                await asyncio.sleep(max(backoff, min(retry_after or 0.0, self.max_retry_after_seconds)))
         raise ScraperError(f"{self.store_name}: agotados reintentos ({last_error!r})")
 
     async def _throttle(self) -> None:
@@ -158,3 +163,14 @@ class HttpScraper(BaseScraper, ABC):
         marker = next((m for m in self.blocked_markers if m in head), None)
         if marker is not None:
             raise ScraperBlockedError(f"{self.store_name}: captcha/WAF detectado ({marker})")
+
+
+def parse_retry_after(value: str | None) -> float | None:
+    """Cabecera Retry-After en segundos ('12'). Fechas HTTP o valores inválidos → None."""
+    if value is None:
+        return None
+    try:
+        seconds = float(value.strip())
+    except ValueError:
+        return None
+    return seconds if seconds >= 0 else None
