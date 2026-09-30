@@ -169,3 +169,40 @@ def test_sync_persists_live_shopify_offers() -> None:
     assert report.errors == []
     assert {(o.product_sku, o.size, o.source) for o in rows} >= {("HQ8708", "42.5", "live")}
     assert all(o.product_sku == "HQ8708" for o in rows)
+
+
+def test_retry_after_is_honoured_on_429(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.scrapers import base
+
+    sleeps: list[float] = []
+
+    async def fake_sleep(seconds: float) -> None:
+        sleeps.append(seconds)
+
+    monkeypatch.setattr(base.asyncio, "sleep", fake_sleep)
+    calls = {"suggest": 0}
+    inner = _handler({CAMPUS_JS["handle"]: CAMPUS_JS}, {"HQ8708": [CAMPUS_JS["handle"]]})
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/search/suggest.json" and calls["suggest"] == 0:
+            calls["suggest"] += 1
+            return httpx.Response(429, headers={"Retry-After": "7"})
+        return inner(request)
+
+    scraper = ShopifyScraper("Urban Jungle", "shop.test", min_interval_seconds=0, backoff_seconds=0.5, max_retries=2)
+
+    async def go():  # noqa: ANN202
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            return await scraper.fetch_offers(client, CAMPUS)
+
+    assert len(run(go())) == 4
+    assert sleeps == [7.0]  # Retry-After (7 s) en vez del backoff (0.5 s)
+
+
+def test_parse_retry_after() -> None:
+    from app.scrapers.base import parse_retry_after
+
+    assert parse_retry_after("12") == 12.0
+    assert parse_retry_after(" 1.5 ") == 1.5
+    assert parse_retry_after("Wed, 21 Oct 2026 07:28:00 GMT") is None
+    assert parse_retry_after(None) is None and parse_retry_after("-3") is None
