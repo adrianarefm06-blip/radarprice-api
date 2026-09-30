@@ -38,5 +38,5 @@ jobs:
       - run: pip install -r requirements.txt
       - name: Sonda
         env:
-          ARGS: ${{ github.event.inputs.args || '' }}
+          ARGS: ${{ github.event.inputs.args || '--no-stores --suggest-shape www.asphaltgold.com:BD7633 --suggest-shape www.urbanjunglestore.com:HQ8708' }}
         run: python -m scripts.probe_live $ARGS
