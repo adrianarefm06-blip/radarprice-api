@@ -143,6 +143,13 @@ class SyncService:
                         offer.last_updated = now
                         marked_out += 1
 
+            # Tiendas que llevan días fallando: sus ofertas reales antiguas dejan de contar como stock.
+            stale_before = now - timedelta(hours=self._settings.stale_offer_hours)
+            for offer in existing.values():
+                if offer.source == SOURCE_LIVE and offer.in_stock and _aware(offer.last_updated) < stale_before:
+                    offer.in_stock = False
+                    marked_out += 1
+
             images_updated = await self._update_images(session, results)
 
             await session.flush()
@@ -212,3 +219,8 @@ class SyncService:
             point.price = price
             point.source = source
         return 1
+
+
+def _aware(value: datetime) -> datetime:
+    """SQLite devuelve fechas sin zona (se guardan en UTC)."""
+    return value if value.tzinfo is not None else value.replace(tzinfo=UTC)
