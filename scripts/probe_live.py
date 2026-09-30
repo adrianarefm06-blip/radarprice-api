@@ -282,6 +282,53 @@ async def suggest_shape(client: httpx.AsyncClient, host: str, sku: str) -> None:
         print(f"  image: {product.get('image')!r} featured_image: {str(product.get('featured_image'))[:120]}")
 
 
+# Códigos de estilo: Nike/Jordan (CW2288-111), adidas (HQ8708, B75806), New Balance (BB550WT1, U9060GRY).
+_STYLE_RE = re.compile(r"\b([A-Z]{2}\d{4}[-_ ]\d{3}|\d{6}-\d{3}|[A-Z]{1,2}\d{4,5}|[A-Z]{1,3}\d{3,4}[A-Z]{2,4}\d?)\b")
+
+
+def _style_code(product: dict) -> str | None:
+    texts = [str(v.get("sku") or "") for v in product.get("variants") or []] + list(product.get("tags") or [])
+    for text in texts:
+        match = _STYLE_RE.search(text.upper().replace("_", " "))
+        if match:
+            return re.sub(r"[_ ]", "-", match.group(1))
+    return None
+
+
+async def discover(client: httpx.AsyncClient, hosts: list[str], pages: int) -> None:
+    """Zapatillas en stock por tienda Shopify (código de estilo, marca, modelo, precio, tallas en stock)."""
+    api = {"User-Agent": _UA, "Accept": "application/json"}
+    found: dict[str, dict[str, tuple[str, str, float, int]]] = {}
+    for host in hosts:
+        for page in range(1, pages + 1):
+            await asyncio.sleep(2)
+            response = await client.get(f"https://{host}/products.json", params={"limit": "250", "page": str(page)},
+                                        headers=api)
+            if response.status_code != 200:
+                print(f"{host} página {page}: HTTP {response.status_code}")
+                break
+            products = response.json().get("products") or []
+            if not products:
+                break
+            for product in products:
+                kind = f"{product.get('product_type')} {' '.join(product.get('tags') or [])}".lower()
+                if not any(k in kind for k in ("sneaker", "footwear", "shoe", "schuh")):
+                    continue
+                code = _style_code(product)
+                variants = product.get("variants") or []
+                stock = sum(1 for v in variants if v.get("available"))
+                if code is None or stock == 0:
+                    continue
+                price = min(float(v["price"]) for v in variants if v.get("available"))
+                found.setdefault(code, {})[host] = (str(product.get("vendor")), str(product.get("title"))[:45], price, stock)
+    both = [c for c, by in found.items() if len(by) > 1]
+    print(f"\n=== Descubrimiento: {len(found)} códigos en stock, {len(both)} en varias tiendas ===")
+    ranked = sorted(found.items(), key=lambda kv: (-len(kv[1]), -max(s for *_, s in kv[1].values())))
+    for code, by in ranked[:80]:
+        for host, (vendor, title, price, stock) in by.items():
+            print(f"{code:<14} {host.split('.')[1]:<14} {vendor[:12]:<12} {title:<45} {price:>7.2f} tallas={stock}")
+
+
 async def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--store", action="append", choices=sorted(SCRAPER_REGISTRY),
@@ -290,6 +337,9 @@ async def main() -> None:
                         help="busca una foto verificada del SKU en tiendas Shopify (repetible)")
     parser.add_argument("--suggest-shape", action="append", default=[], metavar="HOST:SKU",
                         help="muestra la forma de /search/suggest.json de una tienda Shopify (repetible)")
+    parser.add_argument("--discover", action="append", default=[], metavar="HOST",
+                        help="lista zapatillas en stock de una tienda Shopify (repetible)")
+    parser.add_argument("--discover-pages", type=int, default=12)
     parser.add_argument("--images", action="store_true", help="sondea fuentes de imágenes de producto")
     parser.add_argument("--no-stores", action="store_true", help="omite la prueba de los scrapers")
     parser.add_argument("--candidates", action="store_true", help="sondea tiendas candidatas (Shopify, adidas)")
@@ -309,6 +359,8 @@ async def main() -> None:
         for spec in args.suggest_shape:
             host, _, sku = spec.partition(":")
             await suggest_shape(client, host, sku)
+        if args.discover:
+            await discover(client, args.discover, args.discover_pages)
         if args.images:
             await images(client)
         for sku in args.find_image:
