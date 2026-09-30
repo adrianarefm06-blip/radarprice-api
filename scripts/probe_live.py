@@ -264,12 +264,32 @@ async def find_image(client: httpx.AsyncClient, sku: str) -> None:
             print(f"  {host}: error {exc!r}")
 
 
+async def suggest_shape(client: httpx.AsyncClient, host: str, sku: str) -> None:
+    """Forma de /search/suggest.json: ¿trae variantes con talla, precio, stock y SKU?"""
+    import json
+
+    api = {"User-Agent": _UA, "Accept": "application/json"}
+    response = await client.get(f"https://{host}/search/suggest.json", headers=api,
+                                params={"q": sku, "resources[type]": "product", "resources[limit]": "3"})
+    print(f"\n=== suggest {host} · {sku}: HTTP {response.status_code} "
+          f"retry-after={response.headers.get('retry-after')} ===")
+    if response.status_code != 200:
+        return
+    for product in response.json()["resources"]["results"]["products"][:2]:
+        variants = product.get("variants") or []
+        print(f"  claves: {sorted(product)}")
+        print(f"  variantes: {len(variants)} · primera: {json.dumps(variants[0])[:400] if variants else None}")
+        print(f"  image: {product.get('image')!r} featured_image: {str(product.get('featured_image'))[:120]}")
+
+
 async def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--store", action="append", choices=sorted(SCRAPER_REGISTRY),
                         help="tienda a probar (repetible; por defecto todas)")
     parser.add_argument("--find-image", action="append", default=[], metavar="SKU",
                         help="busca una foto verificada del SKU en tiendas Shopify (repetible)")
+    parser.add_argument("--suggest-shape", action="append", default=[], metavar="HOST:SKU",
+                        help="muestra la forma de /search/suggest.json de una tienda Shopify (repetible)")
     parser.add_argument("--images", action="store_true", help="sondea fuentes de imágenes de producto")
     parser.add_argument("--no-stores", action="store_true", help="omite la prueba de los scrapers")
     parser.add_argument("--candidates", action="store_true", help="sondea tiendas candidatas (Shopify, adidas)")
@@ -286,6 +306,9 @@ async def main() -> None:
         if not args.no_stores:
             for store in args.store or sorted(SCRAPER_REGISTRY):
                 await probe_store(client, store)
+        for spec in args.suggest_shape:
+            host, _, sku = spec.partition(":")
+            await suggest_shape(client, host, sku)
         if args.images:
             await images(client)
         for sku in args.find_image:

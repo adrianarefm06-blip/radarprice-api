@@ -26,6 +26,10 @@ LEGACY_IMAGE_CDN: Final = "https://cdn.radarprice.app/"
 FALLBACK_IMAGES: Final[Mapping[str, str]] = MappingProxyType({
     # New Balance (CDN oficial Scene7).
     "BB550WT1": "https://nb.scene7.com/is/image/NB/bb550wt1_nb_02_i?$pdpflexf2$&wid=800&hei=800",
+    # Asphaltgold (Shopify): limita por IP al servidor (429 intermitente); foto fija de respaldo.
+    "BD7633": "https://cdn.shopify.com/s/files/1/0473/6965/0340/files/"
+              "9d7763e698666f7e8c7c44e59e6ad80cc05998f8_BD7633_Adidas_Handball_Spezial_Collegiate_Navy_Clear_Sky_Gum"
+              "_5_os_1_cc5183cb-0487-4465-911e-5173074d4557.jpg?v=1732515529&width=800",
     # afew-store.com (Shopify): ni Nike ES ni las tiendas activas venden ya estos modelos.
     "DH6927-111": "https://cdn.shopify.com/s/files/1/2718/4356/files/"
                   "air-jordan-4-retro-white-black-neutral-grey-dh6927-111-footwear_20_3E_20sneaker.jpg"

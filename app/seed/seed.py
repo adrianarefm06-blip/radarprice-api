@@ -47,7 +47,8 @@ async def seed_database(
                 added = True
             else:
                 current.gender, current.colorway = seed.gender, seed.colorway
-                if current.image_url.startswith(LEGACY_IMAGE_CDN):
+                # CDN antiguo inexistente o sin foto: la de respaldo (el sync pondrá la de la tienda).
+                if current.image_url.startswith(LEGACY_IMAGE_CDN) or not current.image_url:
                     current.image_url = seed.image_url
     return added
 

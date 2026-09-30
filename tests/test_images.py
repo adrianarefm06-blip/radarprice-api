@@ -132,6 +132,15 @@ def test_startup_replaces_dead_cdn_images() -> None:
         client.portal.call(legacy)  # type: ignore[union-attr]
         products = {p["sku"]: p for p in client.get("/api/v1/products").json()}
         assert products["DD1503-101"]["imageUrl"] == FALLBACK_IMAGES["DD1503-101"]
+
+        async def empty() -> None:  # sin foto (p. ej. tienda caída) → respaldo al arrancar
+            async with sessionmaker() as session, session.begin():
+                await session.execute(update(Product).where(Product.sku == "BD7633").values(image_url=""))
+            await seed_database(sessionmaker)
+
+        client.portal.call(empty)  # type: ignore[union-attr]
+        products = {p["sku"]: p for p in client.get("/api/v1/products").json()}
+        assert products["BD7633"]["imageUrl"] == FALLBACK_IMAGES["BD7633"]
         assert products["CW2288-111"]["imageUrl"] == ""  # la pondrá el sync real
         assert all(not p["imageUrl"].startswith(LEGACY_IMAGE_CDN) for p in products.values())
         offer = next(o for offers in products["HQ8708"]["sizeOffers"].values() for o in offers)
