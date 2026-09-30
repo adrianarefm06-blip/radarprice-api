@@ -26,6 +26,9 @@ class Settings(BaseSettings):
     real_scrapers: tuple[str, ...] = ("Nike", "Urban Jungle", "Asphaltgold")
     http_timeout_seconds: float = 10.0
     history_retention_days: int = 365
+    # Oferta real sin actualizar en este plazo (tienda caída o bloqueada) → se marca agotada:
+    # nunca se enseña un precio viejo como vigente.
+    stale_offer_hours: int = Field(default=72, ge=6)
     # Datos de demostración: ofertas de tiendas simuladas + histórico sintético sembrado.
     # Producción: RADARPRICE_DEMO_DATA=false → la API solo sirve ofertas e histórico reales.
     demo_data: bool = True

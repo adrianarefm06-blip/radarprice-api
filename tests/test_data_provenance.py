@@ -154,3 +154,48 @@ def test_app_starts_and_stops_scheduler() -> None:
     settings = Settings(database_url="sqlite+aiosqlite:///:memory:", sync_interval_minutes=5, real_scrapers=())
     with TestClient(create_app(settings)) as client:
         assert client.get("/health").json() == {"status": "ok"}
+
+
+def test_stale_live_offers_are_marked_out_of_stock() -> None:
+    """Tienda bloqueada varios días: sus ofertas reales viejas dejan de contar como stock."""
+    import asyncio
+    from datetime import UTC, datetime, timedelta
+    from decimal import Decimal
+
+    from sqlalchemy import select
+
+    from app.db.base import Base
+    from app.db.models import SOURCE_LIVE, StoreOffer
+    from app.db.session import create_engine_and_sessionmaker
+    from app.scrapers.base import ScraperError
+    from app.seed.seed import seed_database
+    from app.services.sync_service import SyncService
+
+    class _Down(BaseScraper):
+        @property
+        def store_name(self) -> str:
+            return "Asphaltgold"
+
+        async def fetch_offers(self, client, product):  # noqa: ANN001, ANN202
+            raise ScraperError("Asphaltgold: HTTP 429")
+
+    async def go() -> dict[str, bool]:
+        settings = Settings(database_url="sqlite+aiosqlite:///:memory:", demo_data=False, real_scrapers=())
+        engine, sessionmaker = create_engine_and_sessionmaker(settings)
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        await seed_database(sessionmaker)
+        now = datetime.now(UTC)
+        async with sessionmaker() as session, session.begin():
+            for size, age in (("42", timedelta(hours=100)), ("43", timedelta(hours=10))):
+                session.add(StoreOffer(product_sku="BD7633", store_name="Asphaltgold", size=size,
+                                       price=Decimal("99"), in_stock=True, affiliate_url="https://a.test",
+                                       source=SOURCE_LIVE, last_updated=now - age))
+        await SyncService(sessionmaker, [_Down()], settings).run()
+        async with sessionmaker() as session:
+            rows = await session.scalars(select(StoreOffer).where(StoreOffer.store_name == "Asphaltgold"))
+            stock = {o.size: o.in_stock for o in rows}
+        await engine.dispose()
+        return stock
+
+    assert asyncio.run(go()) == {"42": False, "43": True}  # 100 h > 72 h: caducada; 10 h: se conserva

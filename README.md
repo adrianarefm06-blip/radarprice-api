@@ -110,5 +110,9 @@ Emulador Android: `http://10.0.2.2:8000` (y `android:usesCleartextTraffic="true"
 ### Privacidad
 `GET /privacidad`: política de privacidad en HTML estático (URL para las fichas de Google Play / App Store).
 
+Caducidad: una oferta real sin actualizar en `RADARPRICE_STALE_OFFER_HOURS` (72 h por defecto) se marca agotada,
+para no enseñar como vigente el precio de una tienda que lleva días bloqueada (p. ej. Asphaltgold responde 429 a la
+IP de Render de forma intermitente; desde los runners de GitHub funciona).
+
 Fallo de una tienda (bloqueo, red, HTML desconocido) → error en el informe del sync; sus ofertas previas se conservan.
 Prueba en vivo: `python -m app.scrapers.zalando HQ8708` · `python -m app.scrapers.shopify www.urbanjunglestore.com HQ8708`. Tienda nueva: subclase de `HttpScraper` y alta en `SCRAPER_REGISTRY`.
