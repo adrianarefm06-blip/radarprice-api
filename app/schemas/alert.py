@@ -29,3 +29,6 @@ class AlertOut(CamelModel):
     triggered_price: float | None
     # Precio actual con los datos visibles (en la talla si se fijó). None = sin stock.
     current_price: float | None
+    # Para mostrar la alerta (p. ej. en una notificación) sin pedir el producto aparte.
+    brand: str | None = None
+    product_name: str | None = None

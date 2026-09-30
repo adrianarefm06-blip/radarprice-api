@@ -66,8 +66,10 @@ def test_crud_and_device_isolation(client: TestClient) -> None:
     assert alert["id"].startswith("alt_") and alert["productId"] == "prd_hq8708"
     assert (alert["isActive"], alert["targetSize"], alert["triggeredAt"]) == (True, "42", None)
     assert alert["currentPrice"] is not None
+    assert (alert["brand"], alert["productName"]) == ("adidas", 'Campus 00s "Core Black"')
 
-    assert [a["id"] for a in client.get("/api/v1/alerts", headers=ALICE).json()] == [alert["id"]]
+    listed = client.get("/api/v1/alerts", headers=ALICE).json()
+    assert [a["id"] for a in listed] == [alert["id"]] and listed[0]["productName"] == alert["productName"]
     assert client.get("/api/v1/alerts", headers=BOB).json() == []
     # Otro dispositivo no puede ver, modificar ni borrar (404, sin revelar existencia).
     url = f"/api/v1/alerts/{alert['id']}"

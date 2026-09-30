@@ -34,11 +34,10 @@ async def get_deals(
     size: SizeQuery = None,
     limit: Annotated[int, Query(ge=1, le=50)] = 20,
 ) -> list[ProductOut]:
-    """Ordenados por % de ahorro vs retail. Con `size`: solo stock en esa talla y ranking por esa talla."""
+    """Ordenados por % de ahorro vs retail. Solo productos con stock (con `size`: en esa talla,
+    y el ranking usa esa talla). Un modelo sin ofertas todavía no es un chollo."""
     _validate_size(size, settings)
-    products = await repo.list_with_offers()
-    if size is not None:
-        products = [p for p in products if lowest_in_stock(p.offers, size) is not None]
+    products = [p for p in await repo.list_with_offers() if lowest_in_stock(p.offers, size) is not None]
     ranked = sorted((to_product_out(p, size=size) for p in products), key=lambda p: p.savings_percent, reverse=True)
     return ranked[:limit]
 

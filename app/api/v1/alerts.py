@@ -56,7 +56,14 @@ async def _offers_by_sku(session: AsyncSession, skus: set[str]) -> dict[str, lis
     return grouped
 
 
-def _to_out(alert: PriceAlert, current: Decimal | None) -> AlertOut:
+async def _names_by_sku(session: AsyncSession, skus: set[str]) -> dict[str, tuple[str, str]]:
+    if not skus:
+        return {}
+    rows = await session.execute(select(Product.sku, Product.brand, Product.name).where(Product.sku.in_(skus)))
+    return {sku: (brand, name) for sku, brand, name in rows}
+
+
+def _to_out(alert: PriceAlert, current: Decimal | None, names: tuple[str, str] | None = None) -> AlertOut:
     return AlertOut(
         id=alert.id,
         product_id=product_id(alert.product_sku),
@@ -68,14 +75,22 @@ def _to_out(alert: PriceAlert, current: Decimal | None) -> AlertOut:
         triggered_at=alert.triggered_at,
         triggered_price=float(alert.triggered_price) if alert.triggered_price is not None else None,
         current_price=float(current) if current is not None else None,
+        brand=names[0] if names else None,
+        product_name=names[1] if names else None,
     )
 
 
 async def _render(repo: AlertRepository, alerts: Sequence[PriceAlert], settings: Settings) -> list[AlertOut]:
-    offers = await _offers_by_sku(repo.session, {a.product_sku for a in alerts})
+    skus = {a.product_sku for a in alerts}
+    offers = await _offers_by_sku(repo.session, skus)
+    names = await _names_by_sku(repo.session, skus)
     live_only = _live_only(settings)
     return [
-        _to_out(a, current_price(offers.get(a.product_sku, ()), a.target_size, live_only=live_only))
+        _to_out(
+            a,
+            current_price(offers.get(a.product_sku, ()), a.target_size, live_only=live_only),
+            names.get(a.product_sku),
+        )
         for a in alerts
     ]
 
@@ -124,7 +139,7 @@ async def create_alert(body: AlertCreateIn, repo: AlertRepoDep, settings: Settin
     apply_evaluation(alert, current, now)  # si ya está por debajo, nace disparada
     repo.add(alert)
     await repo.session.commit()
-    return _to_out(alert, current)
+    return _to_out(alert, current, (await _names_by_sku(repo.session, {sku})).get(sku))
 
 
 @router.patch("/{alert_id}", response_model=AlertOut, summary="Pausar/reactivar o cambiar el precio objetivo")
@@ -142,7 +157,7 @@ async def update_alert(
     alert.triggered_at = alert.triggered_price = None
     apply_evaluation(alert, current, datetime.now(UTC))
     await repo.session.commit()
-    return _to_out(alert, current)
+    return _to_out(alert, current, (await _names_by_sku(repo.session, {alert.product_sku})).get(alert.product_sku))
 
 
 @router.delete("/{alert_id}", status_code=status.HTTP_204_NO_CONTENT, summary="Borrar alerta")

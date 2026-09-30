@@ -42,7 +42,7 @@ async def seed_database(
             current = existing.get(seed.sku)
             if current is None:
                 session.add(_product(seed, now))
-                if synthetic_history:
+                if synthetic_history and seed.offers:  # los modelos solo reales no tienen serie sintética
                     session.add_all(_history(seed, today, history_days))
                 added = True
             else:
