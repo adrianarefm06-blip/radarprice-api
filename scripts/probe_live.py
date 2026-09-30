@@ -48,6 +48,7 @@ async def probe_store(client: httpx.AsyncClient, store: str) -> None:
         low = min((o.price for o in in_stock), default=None)
         print(f"{seed.sku:<12} OK tallas={len(offers)} stock={len(in_stock)} desde={low} "
               f"url={offers[0].affiliate_url}  {elapsed:.1f}s")
+        print(f"{'':<12} foto={offers[0].image_url}")
 
 
 async def _raw(client: httpx.AsyncClient, label: str, url: str, sku: str, headers: dict[str, str]) -> None:
